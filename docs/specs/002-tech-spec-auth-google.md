@@ -90,6 +90,55 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
 ---
 
+### `CallbackPage`
+
+Pagina pubblica (non protetta da `AuthGuard`) montata sulla rotta `/auth/callback`. È il punto di atterraggio del redirect di Google: estrae `code` e `state` dalla query string e li inoltra al backend, che esegue lo scambio con Google e risponde impostando il cookie di sessione `httpOnly`. Il `code` transita nel browser solo per essere inoltrato; il JWT non è mai visibile al JavaScript (coerente con ADR-001-F).
+
+```tsx
+// src/pages/CallbackPage.tsx
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { apiClient } from '@/lib/apiClient';
+
+export function CallbackPage() {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const done = useRef(false); // evita doppia esecuzione (StrictMode)
+
+  useEffect(() => {
+    if (done.current) return;
+    done.current = true;
+
+    const code = params.get('code');
+    const state = params.get('state');
+    if (!code || !state) {
+      navigate('/login?error=missing_code', { replace: true });
+      return;
+    }
+
+    apiClient
+      .post('/api/auth/callback', { code, state })
+      .then(() => navigate('/', { replace: true }))
+      .catch(() => setError('Accesso non autorizzato. Verifica di usare un account @sixfeetup.it.'));
+  }, [params, navigate]);
+
+  if (error) return <div role="alert">{error}</div>;
+  return <LoadingSpinner />;
+}
+```
+
+La rotta va registrata **fuori** dall'`AuthGuard` (l'utente non ha ancora il cookie quando vi atterra):
+
+```tsx
+// router
+<Route path="/login" element={<LoginPage />} />
+<Route path="/auth/callback" element={<CallbackPage />} />
+<Route path="/*" element={<AuthGuard>{/* app autenticata */}</AuthGuard>} />
+```
+
+---
+
 ### `apiClient`
 
 Wrapper globale di `fetch` con `credentials: 'include'` impostato su ogni richiesta. Gestisce la risposta `401` invalidando la cache di React Query.
@@ -163,18 +212,24 @@ def login(response: Response):
 
 ---
 
-### `GET /auth/callback`
+### `POST /auth/callback`
 
-Gestisce il redirect di ritorno da Google. È il cuore del flusso OAuth.
+Riceve `code` e `state` inoltrati dalla `CallbackPage` (frontend), esegue lo scambio con Google e imposta il cookie di sessione. È il cuore del flusso OAuth. È una `POST` (non un redirect `GET`): la pagina React la chiama via `fetch` con `credentials: 'include'`, così il `Set-Cookie` `httpOnly` viene applicato e nessun JWT transita nell'URL o nel JavaScript.
 
 ```python
-@router.get("/callback")
-async def callback(code: str, state: str, db: Session = Depends(get_db)):
-    # 1. Verifica state (CSRF)
-    verify_state(state)  # solleva 400 se non valido
+from pydantic import BaseModel
 
-    # 2. Scambia code con token Google
-    token_response = await exchange_code(code)
+class CallbackBody(BaseModel):
+    code: str
+    state: str
+
+@router.post("/callback")
+async def callback(body: CallbackBody, response: Response, db: Session = Depends(get_db)):
+    # 1. Verifica state (CSRF)
+    verify_state(body.state)  # solleva 400 se non valido
+
+    # 2. Scambia code con token Google (redirect_uri = pagina FE, deve combaciare)
+    token_response = await exchange_code(body.code)
     id_token = token_response["id_token"]
 
     # 3. Decodifica e verifica id_token con chiavi pubbliche Google (JWKS)
@@ -182,7 +237,7 @@ async def callback(code: str, state: str, db: Session = Depends(get_db)):
 
     # 4. Verifica hd claim (sicurezza, non solo UX)
     if claims.get("hd") != "sixfeetup.it":
-        return RedirectResponse("/login?error=unauthorized_domain", status_code=302)
+        raise HTTPException(status_code=403, detail="unauthorized_domain")
 
     # 5. Upsert utente nel DB
     user = upsert_user(db, email=claims["email"], name=claims.get("name"))
@@ -193,8 +248,7 @@ async def callback(code: str, state: str, db: Session = Depends(get_db)):
         expires_hours=8,
     )
 
-    # 7. Set-Cookie + redirect
-    response = RedirectResponse("/", status_code=302)
+    # 7. Set-Cookie su risposta 200 (nessun redirect: ci pensa la CallbackPage)
     response.set_cookie(
         key="session",
         value=jwt_token,
@@ -204,8 +258,10 @@ async def callback(code: str, state: str, db: Session = Depends(get_db)):
         max_age=28800,  # 8 ore
         path="/",
     )
-    return response
+    return {"ok": True}
 ```
+
+Lato frontend, l'errore `403` viene intercettato dalla `CallbackPage`, che mostra il messaggio di dominio non autorizzato senza esporre dettagli del token.
 
 ---
 
@@ -337,9 +393,13 @@ Browser          Nginx            Backend           Google OAuth          DB
    |──── GET accounts.google.com/o/oauth2/v2/auth ──────→|                |
    |                              [consent screen]        |                |
    |←─────────────────── 302 ────────────────────────────|                |
-   |  /auth/callback?code=AUTH_CODE&state=...             |                |
+   |  /auth/callback?code=AUTH_CODE&state=...  (URL pagina FE)             |
    |                |                |                    |                |
    |─GET /auth/callback?code=...────→                    |                |
+   |                |─serve frontend→  (nginx: / → FE)    |                |
+   |←── 200 HTML + React bundle (CallbackPage) ──────────|                |
+   |                |                |                    |                |
+   |─POST /api/auth/callback { code, state } ────────────→  (FE → BE)     |
    |                |─proxy_pass───→|                    |                |
    |                |               |─1. verify state    |                |
    |                |               |─2. POST token endpoint ────────────→|
@@ -349,10 +409,11 @@ Browser          Nginx            Backend           Google OAuth          DB
    |                |               |─5. upsert user ──────────────────────────────→|
    |                |               |←──────────────────────── { id, role } ────────|
    |                |               |─6. sign JWT {email, role, exp+8h}   |                |
-   |←────────────────── 302 + Set-Cookie: session=JWT ──|                |
+   |←──────── 200 {ok} + Set-Cookie: session=JWT ───────|                |
    |                    HttpOnly; Secure; SameSite=Strict                  |
    |                    Path=/; Max-Age=28800                              |
    |                |                |                    |                |
+   |  CallbackPage: navigate('/')   |                    |                |
    |─GET / ─────────→               |                    |                |
    |                |─serve frontend→                    |                |
    |←── 200 HTML + React bundle ────|                    |                |
@@ -363,7 +424,7 @@ Browser          Nginx            Backend           Google OAuth          DB
    |←─────────── 200 { email, role } ───────────────────|                |
 
 Percorso di errore:
-  hd ≠ "sixfeetup.it"  →  302 /login?error=unauthorized_domain
+  hd ≠ "sixfeetup.it"  →  403 (CallbackPage mostra "dominio non autorizzato")
   JWT assente/scaduto  →  401 Unauthorized
   ruolo insufficiente  →  403 Forbidden
 ```
@@ -376,7 +437,7 @@ Percorso di errore:
 |---|---|---|
 | `GOOGLE_CLIENT_ID` | Google Cloud Console | `123456789.apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | Google Cloud Console | `GOCSPX-...` |
-| `GOOGLE_REDIRECT_URI` | config | `https://6feetup-timeshees.up.railway.app/auth/callback` |
+| `GOOGLE_REDIRECT_URI` | config | `https://6feetup-timesheet.up.railway.app/auth/callback` (pagina FE) |
 | `JWT_SECRET` | generato (256-bit random) | `openssl rand -hex 32` |
 | `TOKEN_ENCRYPT_KEY` | generato (AES-256) | `openssl rand -hex 32` |
 
@@ -384,7 +445,7 @@ In sviluppo locale aggiungere:
 
 | Variabile | Valore locale |
 |---|---|
-| `GOOGLE_REDIRECT_URI` | `http://localhost:8000/auth/callback` |
+| `GOOGLE_REDIRECT_URI` | `http://localhost:5173/auth/callback` (pagina FE servita da Vite) |
 
 Gestione: variabili cifrate su Railway oppure Infisical (vedi ADR-001-H). Mai nel repository.
 
@@ -417,8 +478,8 @@ Percorso: **APIs & Services → Credentials → Create Credentials → OAuth 2.0
 | Campo | Produzione | Sviluppo locale |
 |---|---|---|
 | Application type | Web application | Web application |
-| Authorized JavaScript origins | `https://6feetup-timeshees.up.railway.app` | `http://localhost:5173` |
-| Authorized redirect URIs | `https://6feetup-timeshees.up.railway.app/auth/callback` | `http://localhost:8000/auth/callback` |
+| Authorized JavaScript origins | `https://6feetup-timesheet.up.railway.app` | `http://localhost:5173` |
+| Authorized redirect URIs | `https://6feetup-timesheet.up.railway.app/auth/callback` | `http://localhost:5173/auth/callback` |
 
 Annotare **Client ID** e **Client Secret** e caricarli nelle variabili d'ambiente (non nel repository).
 

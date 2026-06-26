@@ -56,7 +56,7 @@ Questo ADR fissa le **decisioni architetturali** sul testing E2E (framework, aut
 
 **Decisione:** ogni run CI avvia lo stack completo in container (nginx + frontend + backend + stub adapter), con un DB di test **dedicato e usa-e-getta**, e vi punta `baseURL`.
 
-**Database in CI:** **Postgres in container**, non SQLite. Motivazione: i test E2E scrivono `imports`/`user_tokens` in parallelo su più worker; SQLite serializza le scritture e produce lock → flakiness. Dato che l'ADR-001 prevede comunque la migrazione a Postgres, testare su Postgres aumenta la fedeltà e rimuove una classe di falsi negativi. SQLite resta valido per il dev locale a worker singolo.
+**Database in CI:** **Postgres in container**, non SQLite. Motivazione: i test E2E scrivono `imports`/`user_tokens` in parallelo su più worker; SQLite serializza le scritture e produce lock → flakiness. Postgres è lo stesso DB usato in produzione e nel dev locale (avviato via `docker-compose`), quindi i test girano sullo stesso motore in ogni ambiente: massima fedeltà e nessuna classe di falsi negativi legata al motore DB.
 
 **Seed deterministico** applicato dopo le migrazioni:
 - Utenti fissi per ruolo (`employee@`, `hr@`, `admin@sixfeetup.it`).
@@ -127,7 +127,7 @@ I dettagli di configurazione del workflow (sharding, valori di retry, modalità 
 **Trade-off accettati:**
 - Lo stub adapter va mantenuto allineato ai tracciati delle API esterne reali (rischio di drift: lo stub potrebbe restare indietro rispetto a Jira/Odoo/Linear/Asana). Mitigazione: contratti minimi e revisione allo scoprire di una divergenza.
 - L'endpoint test-only è una superficie sensibile: la sua sicurezza dipende dalla rigidità della guardia `E2E_TEST_MODE` e dal check di pipeline.
-- Postgres in CI diverge dallo SQLite del dev locale iniziale (mitigato dalla migrazione a Postgres già prevista).
+- Il dev locale richiede Docker per avviare Postgres via `docker-compose` (vs un file SQLite zero-dipendenze); in cambio CI, dev locale e produzione usano lo stesso identico motore DB, eliminando una classe di divergenze.
 
 ---
 
