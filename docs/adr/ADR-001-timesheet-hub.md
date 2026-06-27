@@ -48,8 +48,8 @@ Il sistema deve essere a **basso costo di manutenzione**, semplice da usare e fa
 |---|---|
 | React + Vite | SPA, PWA-ready |
 | SheetJS | Parsing Excel client-side per preview pre-invio |
-| React Query | Gestione stato asincrono e cache |
-| shadcn/ui | Componenti UI |
+| TanStack Query (`@tanstack/react-query`) | Gestione stato asincrono e cache |
+| MUI v7 + Mantis | Componenti UI e shell admin |
 
 **Backend**
 
@@ -72,7 +72,7 @@ Si utilizza **PostgreSQL** tramite il plugin Railway managed. La scelta di SQLit
 | Reverse proxy | Nginx (vedi ADR-001-E) |
 | Database | PostgreSQL — Railway managed plugin |
 | Ambienti | Due Railway Environments: `staging` (branch `development`) e `production` (branch `main`) |
-| Deploy | Trigger automatico Railway su push al branch configurato per environment — nessuna GitHub Action |
+| Deploy | Trigger automatico Railway su push al branch configurato per environment — nessuna GitHub Action coinvolta nel deploy. Il merge gate CI su `main` è descritto in ADR-002-H. |
 | Secrets | Secret Variables Railway per environment — mai in chiaro nel repository |
 
 ---

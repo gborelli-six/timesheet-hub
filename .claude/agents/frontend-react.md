@@ -9,8 +9,8 @@ Sei lo specialista del frontend di **Timesheet Hub**, una SPA interna (PWA-ready
 
 ## Stack
 - **React + Vite** (SPA).
-- **shadcn/ui** per i componenti UI; design token per stile coerente.
-- **React Query** per la gestione dello stato asincrono (loading/error/success espliciti).
+- **MUI v7 + Mantis** per i componenti UI e la shell admin (layout, sidebar, DataGrid, Stepper).
+- **TanStack Query (`@tanstack/react-query`)** per la gestione dello stato asincrono (loading/error/success espliciti).
 - **SheetJS** per il parsing dell'Excel **client-side**, con mapping colonne configurabile e preview prima dell'invio.
 
 ## Flussi chiave
@@ -21,7 +21,7 @@ Sei lo specialista del frontend di **Timesheet Hub**, una SPA interna (PWA-ready
 
 ## Regole
 - Rispetta l'RBAC anche in UI: nascondi/disabilita ciò che il ruolo dal JWT non può fare (la sicurezza vera resta lato backend).
-- Stati React Query sempre espliciti (loading, error, empty, success): sono coperti dai test E2E.
+- Stati TanStack Query sempre espliciti (loading, error, empty, success): sono coperti dai test E2E.
 
 ## Riferimenti (leggili prima di progettare)
 - `docs/specs/003-timesheet-hub-ux-brief.md` — design brief, schermate, navigazione, wireframe attesi, principi UX.

@@ -69,13 +69,17 @@ Ogni environment ha i propri servizi, variabili d'ambiente e istanza database in
 | Servizio | Tipo | Source | `rootDirectory` | Porta interna |
 |---|---|---|---|---|
 | `nginx` | Docker (Dockerfile custom) | GitHub | `/nginx` | 80 |
-| `frontend` | Nixpacks (Node) | GitHub | `/frontend` | 3000 |
-| `backend` | Nixpacks (Python) | GitHub | `/backend` | 8000 |
+| `frontend` | Docker (Dockerfile custom) | GitHub | `/frontend` | 3000 |
+| `backend` | Docker (Dockerfile custom) | GitHub | `/backend` | 8000 |
 | `postgres` | Railway Plugin | — | — | 5432 |
 
 **Networking:** solo `nginx` ha un custom domain pubblico configurato su Railway. `frontend` e `backend` non espongono porte pubbliche e sono raggiungibili esclusivamente sulla rete privata Railway tramite hostname interni (`frontend.railway.internal`, `backend.railway.internal`). Il plugin `postgres` è raggiungibile dal backend tramite la variabile `DATABASE_URL` iniettata automaticamente da Railway.
 
 **Motivazione:** tenere frontend e backend separati da nginx permette deploy indipendenti: una modifica al solo frontend non richiede il rebuild di nginx, e viceversa. Il costo aggiuntivo di un container che serve file statici è trascurabile (~20 MB RAM).
+
+**Configurazione build — `railway.json` per-servizio:** ogni servizio dichiara un file `railway.json` nella propria directory (`backend/railway.json`, `frontend/railway.json`, `nginx/railway.json`) con `build.builder = "DOCKERFILE"` e `dockerfilePath` relativo alla root del servizio. `rootDirectory` resta configurato lato Railway UI per servizio (coerente con ADR-002-B). I contenuti concreti dei file `railway.json` sono definiti in STORY-006.
+
+**Pre-deploy migrate (backend):** il servizio `backend` esegue `preDeployCommand: "alembic upgrade head"` prima dello swap del container in ogni environment (staging su `development`, production su `main`). Le migration vengono quindi applicate nell'environment target prima che il nuovo container sia messo in traffico.
 
 ---
 
@@ -123,17 +127,32 @@ I secret applicativi (Google OAuth, variabili di configurazione dell'app) sono g
 
 ---
 
+### ADR-002-H — CI GitHub Actions: gate di merge, non meccanismo di deploy
+
+**Decisione:** ADR-002-C dichiarava l'assenza di pipeline CI/CD esterne. Con l'introduzione di ADR-003-F, questo va precisato:
+
+- **Deploy:** resta interamente gestito da Railway tramite trigger nativo su push al branch configurato per environment. Nessuna GitHub Action è coinvolta nel ciclo di build/deploy delle immagini.
+- **Merge gate:** una GitHub Actions workflow è configurata come *required status check* su `main`. Il suo compito è esclusivamente qualitativo (test E2E, lint, type-check) e blocca il merge di PR non verificate. Non builda immagini, non interagisce con Railway.
+
+I due meccanismi sono **ortogonali**: Railway porta il codice in produzione; GitHub Actions garantisce che solo codice verificato arrivi su `main`. Il flusso è: `PR → CI gate (GitHub Actions) → merge su main → deploy Railway (production)`.
+
+Questo chiarisce il riferimento in ADR-001-B ("nessuna GitHub Action"): vale per il *deploy*, non per il *merge gate* introdotto in E1.
+
+**Motivazione:** separare i due meccanismi elimina la contraddizione tra ADR-002-C (deploy Railway nativo) e ADR-003-F (CI come gate bloccante). La scelta mantiene la semplicità operativa del deploy (zero configurazione CI per buildare immagini) e aggiunge un gate di qualità senza accoppiare le due responsabilità.
+
+---
+
 ## Conseguenze
 
 **Positive:**
-- Infrastruttura interamente gestita da Railway: nessuna pipeline CI/CD esterna da mantenere.
+- Deploy interamente gestito da Railway (trigger nativo su push al branch): nessuna pipeline CI/CD esterna coinvolta nel ciclo di build/deploy. La CI GitHub Actions (ADR-002-H) è un gate di qualità pre-merge ortogonale al deploy, non lo sostituisce.
 - Isolamento completo tra staging e production a livello di servizi, database e variabili.
 - Deploy automatici da branch: il flusso `development → staging`, `main → production` è configurato una volta sola su Railway.
 - Postgres managed elimina la gestione del filesystem persistente e la pianificazione di una futura migrazione da SQLite.
 - Rebuild selettivo per servizio grazie alla configurazione `rootDirectory` sul monorepo.
 
 **Trade-off accettati:**
-- Assenza di test automatici nel ciclo di deploy: un push su `development` triggera il deploy senza gate di qualità. Accettabile nella fase iniziale; un `pre-deploy command` su Railway può introdurre i test in futuro senza modificare l'architettura.
+- Un push su `development` (staging) triggera il deploy senza gate E2E — il gate bloccante è configurato solo su `main` (production). Accettabile: staging è l'ambiente di validazione, production è protetta dalla CI (ADR-002-H).
 - Tre servizi per environment invece di due (nginx separato da frontend): aggiunge un hop di rete interno, trascurabile per uso interno.
 
 ---
@@ -141,5 +160,4 @@ I secret applicativi (Google OAuth, variabili di configurazione dell'app) sono g
 ## Decisioni aperte
 
 - Strategia di promozione da staging a production: merge manuale su `main` oppure introduzione di un branch `release` intermedio.
-- Configurazione del `pre-deploy command` Railway per le migration del database (`alembic upgrade head`) prima dello swap del container backend.
 - Definizione delle retention policy sui log Railway per i due environment.

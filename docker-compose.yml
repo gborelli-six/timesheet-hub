@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-timesheet_hub}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-timesheet_hub}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-timesheet_hub}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      TOKEN_ENCRYPT_KEY: ${TOKEN_ENCRYPT_KEY:-}
+      ENVIRONMENT: ${ENVIRONMENT:-local}
+      E2E_TEST_MODE: ${E2E_TEST_MODE:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+    ports:
+      - "5173:5173"
+
+  adapter-stub:
+    build:
+      context: ./backend
+      target: dev
+    command: ["uv", "run", "uvicorn", "e2e_stub.main:app", "--host", "0.0.0.0", "--port", "9000", "--reload"]
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    ports:
+      - "9000:9000"
+    profiles:
+      - e2e
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:9000/health')\" || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    build:
+      context: ./nginx
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+    profiles:
+      - proxy
+
+volumes:
+  pgdata:

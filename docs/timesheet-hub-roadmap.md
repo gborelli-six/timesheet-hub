@@ -2,8 +2,8 @@
 
 | Campo | Valore |
 |---|---|
-| Versione | 0.3 |
-| Data | 2026-05-28 |
+| Versione | 0.4 |
+| Data | 2026-06-27 |
 | Stato | Bozza |
 | Riferimenti | 001-functional-spec.md · 003-ux-brief.md · ADR-001 |
 
@@ -22,19 +22,19 @@
 
 ## Scaletta ordinata
 
-| # | Epica | Descrizione | Possiede (DB) | Cosa definire |
-|---|---|---|---|---|
-| **E1** | Fondamenta infrastrutturali & DevOps | Repo, CI/CD a due livelli, 3 servizi Railway (nginx/frontend/backend), nginx single-domain. Predispone runner E2E (Playwright), branch protection su `main`, impalcatura documentazione. | — | Tech / Operativo |
-| **E2** | Fondamenta dati & autorizzazione | Setup ORM + tooling migrazioni (Alembic), convenzioni condivise (naming, FK, campi audit, gestione enum). Middleware RBAC a 3 ruoli, invocato da ogni endpoint protetto. Va fatto una volta, lo usano tutti. | — (tooling + RBAC) | Tech |
-| **E3** | Autenticazione & identità | Google OAuth `hd=sixfeetup.it`, JWT con claim `role`, cookie httpOnly/SameSite=Strict (8h). Crea/legge l'identità utente. | `users` | Tech |
-| **E4** | Style guide & shell applicativa | Token (palette, font, spaziatura), header/footer/menu, layout unificato, schermata login, componenti base. Sblocca tutte le UI successive. | — | UX/UI → Tech |
-| **E5** | Profilo & token utente | Cifratura AES-256-GCM, CRUD token per backend, campo password-like, stati. Estende `users` se servono campi profilo. Prerequisito dell'import. | `user_tokens` | UX/UI → Tech |
-| **E6** | Parsing Excel & Normalizer | Parsing client-side SheetJS, modello `TimesheetEntry[]`, mapping colonne configurabile, preview con warning righe anomale. | — | UX/UI → Tech |
-| **E7** | Architettura plug-in + adapter Odoo | Interfaccia adapter, registry estendibile, integrazione Odoo (JSON-RPC), gestione errori parziali. | `backend_configs` | Tech |
-| **E8** | Flusso di importazione (wizard 4 step) | Orchestrazione end-to-end: (HR) selezione dipendente → upload → preview → selezione backend → submit → risultato. Dipende da E5, E6, E7. | `imports` | UX/UI → Tech |
-| **E9** | Log delle importazioni | Vista con filtri, dettaglio, visibilità per ruolo. Dipende da E8. | — (legge `imports`) | UX/UI → Tech |
-| **E10** | Pannello Admin | Utenti/ruoli, config backend↔progetto, mapping Excel. Usato raramente, bassa priorità. | — | UX/UI → Tech |
-| **E11** | Adapter aggiuntivi (Jira, Linear, Asana) | Nuovi file sul pattern di E7. Differita post-v1. | — | Tech |
+| # | Stato | Epica | Descrizione | Possiede (DB) | Cosa definire |
+|---|---|---|---|---|---|
+| **E1** | ✅ Done | Fondamenta infrastrutturali & DevOps | Repo, CI/CD a due livelli, 3 servizi Railway (nginx/frontend/backend), nginx single-domain. Predispone runner E2E (Playwright), branch protection su `main`, impalcatura documentazione. | — | Tech / Operativo |
+| **E2** | ⬜ Todo | Fondamenta dati & autorizzazione | Setup ORM + tooling migrazioni (Alembic), convenzioni condivise (naming, FK, campi audit, gestione enum). Middleware RBAC a 3 ruoli, invocato da ogni endpoint protetto. Va fatto una volta, lo usano tutti. | — (tooling + RBAC) | Tech |
+| **E3** | ⬜ Todo | Autenticazione & identità | Google OAuth `hd=sixfeetup.it`, JWT con claim `role`, cookie httpOnly/SameSite=Strict (8h). Crea/legge l'identità utente. | `users` | Tech |
+| **E4** | ⬜ Todo | Style guide & shell applicativa | Token (palette, font, spaziatura), header/footer/menu, layout unificato, schermata login, componenti base. Sblocca tutte le UI successive. | — | UX/UI → Tech |
+| **E5** | ⬜ Todo | Profilo & token utente | Cifratura AES-256-GCM, CRUD token per backend, campo password-like, stati. Estende `users` se servono campi profilo. Prerequisito dell'import. | `user_tokens` | UX/UI → Tech |
+| **E6** | ⬜ Todo | Parsing Excel & Normalizer | Parsing client-side SheetJS, modello `TimesheetEntry[]`, mapping colonne configurabile, preview con warning righe anomale. | — | UX/UI → Tech |
+| **E7** | ⬜ Todo | Architettura plug-in + adapter Odoo | Interfaccia adapter, registry estendibile, integrazione Odoo (JSON-RPC), gestione errori parziali. | `backend_configs` | Tech |
+| **E8** | ⬜ Todo | Flusso di importazione (wizard 4 step) | Orchestrazione end-to-end: (HR) selezione dipendente → upload → preview → selezione backend → submit → risultato. Dipende da E5, E6, E7. | `imports` | UX/UI → Tech |
+| **E9** | ⬜ Todo | Log delle importazioni | Vista con filtri, dettaglio, visibilità per ruolo. Dipende da E8. | — (legge `imports`) | UX/UI → Tech |
+| **E10** | ⬜ Todo | Pannello Admin | Utenti/ruoli, config backend↔progetto, mapping Excel. Usato raramente, bassa priorità. | — | UX/UI → Tech |
+| **E11** | ⬜ Todo | Adapter aggiuntivi (Jira, Linear, Asana) | Nuovi file sul pattern di E7. Differita post-v1. | — | Tech |
 
 ---
 

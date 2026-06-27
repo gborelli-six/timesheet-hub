@@ -1,0 +1,112 @@
+name: E2E Smoke
+
+# Smoke E1: verifica build & boot dello stack (compose up → /health 200 via nginx, FE serve index.html).
+# Lo scenario auth completo (#1) richiede JWT reali (E3, ADR-003-B) ed è fuori scope E1.
+# E2E_TEST_MODE=true è impostato per coerenza con la suite futura (ADR-003-B),
+# ma in E1 nessuna rotta test-only viene invocata dallo smoke.
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "nginx/**"
+      - "e2e/**"
+      - "docker-compose.yml"
+      - "docker-compose.ci.yml"
+      - ".github/workflows/e2e.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "nginx/**"
+      - "e2e/**"
+      - "docker-compose.yml"
+      - "docker-compose.ci.yml"
+      - ".github/workflows/e2e.yml"
+
+jobs:
+  smoke:
+    name: Smoke (build & boot)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Create .env for CI
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres
+          POSTGRES_DB=timesheet_hub
+          JWT_SECRET=ci-test-secret-not-for-production
+          TOKEN_ENCRYPT_KEY=
+          ENVIRONMENT=ci
+          E2E_TEST_MODE=true
+          VITE_GOOGLE_CLIENT_ID=
+          EOF
+
+      - name: Build stack
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml build
+
+      - name: Start stack (nginx proxy incluso)
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml --profile proxy up -d
+
+      - name: Wait for backend /health
+        run: |
+          echo "Attendo backend /health..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health; then
+              echo "Backend pronto."
+              break
+            fi
+            echo "Tentativo $i/30..."
+            sleep 2
+          done
+          curl -sf http://localhost:8000/health || (docker compose logs && exit 1)
+
+      - name: Wait for nginx proxy
+        run: |
+          echo "Attendo nginx su porta 80..."
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost/api/health; then
+              echo "Nginx pronto."
+              break
+            fi
+            echo "Tentativo $i/20..."
+            sleep 2
+          done
+          curl -sf http://localhost/api/health || (docker compose logs nginx && exit 1)
+
+      - name: Install Playwright dependencies
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run smoke tests
+        working-directory: e2e
+        run: npx playwright test --grep @smoke
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            e2e/test-results/
+            e2e/playwright-report/
+          retention-days: 7
+
+      - name: Dump compose logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs

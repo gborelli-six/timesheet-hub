@@ -1,0 +1,27 @@
+# Override per ambienti CI.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.ci.yml --profile proxy up -d
+#
+# Differenze rispetto a docker-compose.yml:
+# - frontend usa il target "runtime" (nginx statico su porta 3000) invece di "dev":
+#   l'immagine dev serve i sorgenti via bind-mount, assente in CI (build deterministici)
+# - nginx monta nginx.ci.conf (proxy a frontend:3000) invece di nginx.dev.conf
+#   (proxy a frontend:5173, la porta del dev server Vite in locale)
+# - nessun volume mount su backend/frontend (build deterministici in CI)
+# - nginx profile proxy attivo per default
+
+services:
+  backend:
+    volumes: []
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    volumes: []
+    ports:
+      - "3000:3000"
+
+  nginx:
+    profiles: []
+    volumes:
+      - ./nginx/nginx.ci.conf:/etc/nginx/conf.d/default.conf:ro

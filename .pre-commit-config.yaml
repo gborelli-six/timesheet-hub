@@ -1,0 +1,40 @@
+repos:
+  # Backend Python: ruff lint (con autofix) + ruff format
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.12
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  # Frontend TS/TSX: eslint
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint (frontend)
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
+  # Frontend TS/TSX/JSON/CSS: prettier check
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier (frontend)
+        entry: bash -c 'cd frontend && npx prettier --check .'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|json|css)$
+        pass_filenames: false
+
+  # Frontend: TypeScript type-check
+  - repo: local
+    hooks:
+      - id: tsc
+        name: tsc --noEmit (frontend)
+        entry: bash -c 'cd frontend && npm run type-check'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false

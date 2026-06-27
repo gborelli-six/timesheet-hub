@@ -212,13 +212,13 @@ Lo strumento è **interno** e **professionale**, usato da persone che lo aprono 
 
 | Aspetto | Dettaglio |
 |---|---|
-| Framework frontend | React + Vite, componenti shadcn/ui |
+| Framework frontend | React + Vite, MUI v7 + Mantis |
 | Viewport target | Desktop (uso esclusivo da rete aziendale / VPN) |
 | Mobile | Fuori scope v1 |
 | Autenticazione | Google OAuth — il login è una singola schermata, nessun form custom |
 | Sessione | 8 ore, poi redirect automatico al login |
 | Parsing Excel | Client-side (SheetJS) — la preview non richiede round-trip server |
-| Stato asincrono | React Query — gli stati loading/error/success devono essere sempre rappresentati |
+| Stato asincrono | TanStack Query (`@tanstack/react-query`) — gli stati loading/error/success devono essere sempre rappresentati |
 
 ---
 

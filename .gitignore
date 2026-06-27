@@ -1,8 +1,13 @@
 # Dependencies
 node_modules/
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+
+# Python
+__pycache__/
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # Build output
 dist/
@@ -60,3 +65,9 @@ ecosystem.config.js
 # Testing
 jest.config.js
 .jest/
+
+# Playwright
+/test-results/
+/playwright-report/
+/e2e/.auth/
+/e2e/fixtures/xlsx/
