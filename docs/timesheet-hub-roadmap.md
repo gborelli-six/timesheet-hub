@@ -25,8 +25,8 @@
 | # | Epica | Descrizione | Possiede (DB) | Cosa definire |
 |---|---|---|---|---|
 | **E1** | Fondamenta infrastrutturali & DevOps | Repo, CI/CD a due livelli, 3 servizi Railway (nginx/frontend/backend), nginx single-domain. Predispone runner E2E (Playwright), branch protection su `main`, impalcatura documentazione. | — | Tech / Operativo |
-| **E2** | Fondamenta dati & autorizzazione | Setup ORM + tooling migrazioni (Alembic/Prisma), convenzioni condivise (naming, FK, campi audit, gestione enum). Middleware RBAC a 3 ruoli, invocato da ogni endpoint protetto. Va fatto una volta, lo usano tutti. | — (tooling + RBAC) | Tech |
-| **E3** | Autenticazione & identità | Google OAuth `hd=6feetup.com`, JWT con claim `role`, cookie httpOnly/SameSite=Strict (8h). Crea/legge l'identità utente. | `users` | Tech |
+| **E2** | Fondamenta dati & autorizzazione | Setup ORM + tooling migrazioni (Alembic), convenzioni condivise (naming, FK, campi audit, gestione enum). Middleware RBAC a 3 ruoli, invocato da ogni endpoint protetto. Va fatto una volta, lo usano tutti. | — (tooling + RBAC) | Tech |
+| **E3** | Autenticazione & identità | Google OAuth `hd=sixfeetup.it`, JWT con claim `role`, cookie httpOnly/SameSite=Strict (8h). Crea/legge l'identità utente. | `users` | Tech |
 | **E4** | Style guide & shell applicativa | Token (palette, font, spaziatura), header/footer/menu, layout unificato, schermata login, componenti base. Sblocca tutte le UI successive. | — | UX/UI → Tech |
 | **E5** | Profilo & token utente | Cifratura AES-256-GCM, CRUD token per backend, campo password-like, stati. Estende `users` se servono campi profilo. Prerequisito dell'import. | `user_tokens` | UX/UI → Tech |
 | **E6** | Parsing Excel & Normalizer | Parsing client-side SheetJS, modello `TimesheetEntry[]`, mapping colonne configurabile, preview con warning righe anomale. | — | UX/UI → Tech |

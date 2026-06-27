@@ -55,10 +55,10 @@ Il sistema deve essere a **basso costo di manutenzione**, semplice da usare e fa
 
 | Tecnologia | Ruolo |
 |---|---|
-| FastAPI (Python) *oppure* Node + Fastify | API REST, async, type-safe |
+| FastAPI (Python) | API REST, async, type-safe |
 | Adapter pattern | Modulo isolato per ciascun backend esterno |
-| SQLAlchemy *oppure* Prisma | ORM |
-| Alembic *oppure* Prisma Migrate | Gestione migrazioni DB |
+| SQLAlchemy | ORM |
+| Alembic | Gestione migrazioni DB |
 
 **Database**
 
@@ -103,7 +103,7 @@ interface TimesheetAdapter:
 **Flusso:**
 
 1. Il browser reindirizza a Google con `hd=sixfeetup.it`.
-2. Google restituisce un `code` al callback backend `/auth/callback`.
+2. Google restituisce un `code` alla pagina di callback frontend `/auth/callback`, che lo inoltra al backend (`POST /api/auth/callback`).
 3. Il backend scambia il `code` con `id_token` + `email`.
 4. Il backend verifica che `hd == "sixfeetup.it"`, recupera o crea il record utente con il ruolo assegnato.
 5. Il backend emette un JWT firmato contenente `email`, `role`, `exp` e lo imposta come cookie `httpOnly`.
@@ -115,13 +115,13 @@ interface TimesheetAdapter:
 **Decisione:** nginx è deployato come terzo servizio Railway e serve entrambe le applicazioni sotto lo stesso dominio, separando il traffico per path:
 
 ```
-6feetup-timeshees.up.railway.app/      → frontend React  (porta 3000)
-6feetup-timeshees.up.railway.app/api/  → backend API     (porta 8000)
+6feetup-timesheet.up.railway.app/      → frontend React  (porta 3000)
+6feetup-timesheet.up.railway.app/api/  → backend API     (porta 8000)
 ```
 
 Solo nginx ha un custom domain pubblico configurato su Railway. Frontend e backend sono raggiungibili esclusivamente sulla rete privata Railway tramite hostname interni (`frontend.railway.internal`, `backend.railway.internal`).
 
-**Motivazione:** questa topologia rende frontend e backend della stessa origin (`6feetup-timeshees.up.railway.app`), il che consente l'uso di cookie `SameSite=Strict` senza nessuna configurazione CORS. I servizi interni su Railway si raggiungono per hostname privato; solo nginx espone la porta pubblica. Railway gestisce TLS automaticamente sul custom domain.
+**Motivazione:** questa topologia rende frontend e backend della stessa origin (`6feetup-timesheet.up.railway.app`), il che consente l'uso di cookie `SameSite=Strict` senza nessuna configurazione CORS. I servizi interni su Railway si raggiungono per hostname privato; solo nginx espone la porta pubblica. Railway gestisce TLS automaticamente sul custom domain.
 
 **Configurazione nginx rilevante:**
 
