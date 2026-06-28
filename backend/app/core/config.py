@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://localhost/timesheet_hub"
     jwt_secret: str = ""
     token_encrypt_key: str = ""
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = ""
     # Default sicuro: in assenza di un segnale esplicito si assume produzione.
     environment: str = "production"
     e2e_test_mode: bool = False

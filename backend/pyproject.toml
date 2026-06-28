@@ -12,6 +12,8 @@ dependencies = [
     "asyncpg>=0.29.0",
     "pydantic-settings>=2.0.0",
     "pyjwt>=2.8.0",
+    "google-auth>=2.0",
+    "requests>=2.31.0",
 ]
 
 [dependency-groups]
@@ -27,6 +29,10 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI usa Depends() come default di parametro — pattern corretto, non un bug
+"app/routers/*.py" = ["B008"]
 
 [tool.ruff.format]
 quote-style = "double"

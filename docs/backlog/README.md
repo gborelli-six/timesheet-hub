@@ -1,6 +1,6 @@
 # Backlog Timesheet Hub
 
-> Aggiornato: 2026-06-28 — E1 completata; E2 completata; E3 dettagliata (002-tech-spec-auth-google); E4 dettagliata (MUI v7 + Mantis + claude.ai/design); E5 dettagliata (ADR-005)
+> Aggiornato: 2026-06-28 — E1 completata; E2 completata; E3 completata (tutte 7 storie Done, STORY-023 docs); E4 dettagliata (MUI v7 + Mantis + claude.ai/design); E5 dettagliata (ADR-005); E6 dettagliata (parsing Excel & Normalizer)
 
 Il backlog è effimero: le storie completate vengono rimosse dopo il merge su `main` e l'aggiornamento della documentazione permanente (ADR, spec, guide). I dati persistenti vivono in ADR/spec/test/codice, non qui.
 
@@ -11,9 +11,10 @@ Riferimenti: `docs/timesheet-hub-roadmap.md` · `docs/adr/ADR-001` · `docs/adr/
 |---|---|---|---|---|---|
 | E1 | 10 | 0 | 0 | 0 | 10 ✅ |
 | E2 | 6 | 0 | 0 | 0 | 6 ✅ |
-| E3 | 0 | 0 | 7 | 0 | 7 |
+| E3 | 7 | 0 | 0 | 0 | 7 ✅ |
 | E4 | 0 | 0 | 7 | 0 | 7 |
 | E5 | 0 | 0 | 6 | 0 | 6 |
+| E6 | 0 | 0 | 6 | 0 | 6 |
 
 ## E1 — Completata
 
@@ -51,13 +52,13 @@ Dettaglio storie: [`e3-stories.md`](e3-stories.md).
 
 | Storia | Titolo | Tipo | Dipende da | Stato |
 |---|---|---|---|---|
-| STORY-017 | Modello `User` + migrazione `0002_create_users` | Backend | STORY-012 | ⬜ Todo |
-| STORY-018 | JWT reale (`create_jwt`/`decode_jwt`) + `get_current_user` da cookie | Backend | STORY-013, STORY-017 | ⬜ Todo |
-| STORY-019 | Router OAuth (`/login`, `/callback`, `/logout`) + `GET /api/me` | Backend | STORY-017, STORY-018 | ⬜ Todo |
-| STORY-020 | Endpoint test-only `POST /api/_test/session` + E2E storageState per-ruolo | Backend + E2E | STORY-019 | ⬜ Todo |
-| STORY-021 | Test integrazione & unit E3 | Test | STORY-017, STORY-018, STORY-019 | ⬜ Todo |
-| STORY-022 | Frontend auth (LoginPage, CallbackPage, useAuth, AuthGuard, apiClient) | Frontend | STORY-019 | ⬜ Todo |
-| STORY-023 | Documentazione funzionale E3 | Docs | STORY-017…022 | ⬜ Todo |
+| STORY-017 | Modello `User` + migrazione `0002_create_users` | Backend | STORY-012 | ✅ Done |
+| STORY-018 | JWT reale (`create_jwt`/`decode_jwt`) + `get_current_user` da cookie | Backend | STORY-013, STORY-017 | ✅ Done |
+| STORY-019 | Router OAuth (`/login`, `/callback`, `/logout`) + `GET /api/me` | Backend | STORY-017, STORY-018 | ✅ Done |
+| STORY-020 | Endpoint test-only `POST /api/_test/session` + E2E storageState per-ruolo | Backend + E2E | STORY-019 | ✅ Done |
+| STORY-021 | Test integrazione & unit E3 | Test | STORY-017, STORY-018, STORY-019 | ✅ Done |
+| STORY-022 | Frontend auth (LoginPage, CallbackPage, useAuth, AuthGuard, apiClient) | Frontend | STORY-019 | ✅ Done |
+| STORY-023 | Documentazione funzionale E3 | Docs | STORY-017…022 | ✅ Done |
 
 ## E4 — Style guide & shell applicativa
 
@@ -90,7 +91,23 @@ Dettaglio storie: [`e5-stories.md`](e5-stories.md) — ID `STORY-E5-N` provvisor
 | STORY-E5-5 | Stato "token da aggiornare" su errore auth | Backend + Frontend | STORY-E5-3 | ⬜ Todo |
 | STORY-E5-6 | Documentazione E5 | Docs | STORY-E5-1…5 | ⬜ Todo |
 
+## E6 — Parsing Excel & Normalizer
+
+Parsing client-side SheetJS, normalizzazione in `TimesheetEntry[]` con `ColumnMapping` configurabile (default hardcoded per v1; pannello di config in E10), preview con warning non bloccanti per righe anomale. Tutta la logica è frontend — nessuna tabella DB, nessun upload al server durante il parsing. Sblocca E8 (wizard orchestrazione end-to-end); dipende da E4 (componenti MUI) ed E3 (identità utente per i test E2E).
+
+Dettaglio storie: [`e6-stories.md`](e6-stories.md).
+
+| Storia | Titolo | Tipo | Dipende da | Stato |
+|---|---|---|---|---|
+| STORY-E6-1 | Design UX: step Upload & step Preview | UX/UI | E4 (STORY-030) | ⬜ Todo |
+| STORY-E6-2 | Tipo `TimesheetEntry` e Normalizer | Frontend | STORY-E6-1 | ⬜ Todo |
+| STORY-E6-3 | Componente `FileUpload` + parsing SheetJS | Frontend | STORY-E6-1 | ⬜ Todo |
+| STORY-E6-4 | Componente `PreviewTable` con warning righe anomale | Frontend | STORY-E6-2, STORY-E6-3 | ⬜ Todo |
+| STORY-E6-5 | Fixture Excel E2E + scenari E2E #6/#7/#8 | E2E | STORY-E6-3, STORY-E6-4 | ⬜ Todo |
+| STORY-E6-6 | Documentazione E6 | Docs | STORY-E6-1…5 | ⬜ Todo |
+
 ## Prossime epiche
+- **E6**: parsing Excel & Normalizer (prerequisito di E8) — da fare prima di E7/E8
 - **E7/E8**: import wizard + adapter reali (Jira/Odoo/Linear/Asana) + dati E2E__ esercitati
 
 ## Note sullo scope E1

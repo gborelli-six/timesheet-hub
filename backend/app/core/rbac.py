@@ -2,11 +2,10 @@ from enum import StrEnum
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Cookie, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from app.core.config import settings
+from app.core.security import decode_jwt
 
 
 class UserRole(StrEnum):
@@ -20,27 +19,23 @@ class CurrentUser(BaseModel):
     role: UserRole
 
 
-# auto_error=False per restituire 401 (non 403) su token assente
-_bearer = HTTPBearer(auto_error=False)
-
-
 def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    session: Annotated[str | None, Cookie()] = None,
 ) -> CurrentUser:
-    # Decode HS256 con JWT_SECRET; in E3 sarà sostituito dalla chiave Google pubblica
-    if credentials is None:
+    if session is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing token",
         )
     try:
-        payload = jwt.decode(
-            credentials.credentials,
-            settings.jwt_secret,
-            algorithms=["HS256"],
-        )
+        payload = decode_jwt(session)
         return CurrentUser(email=payload["email"], role=payload["role"])
-    except Exception as exc:
+    except jwt.ExpiredSignatureError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired",
+        ) from exc
+    except jwt.InvalidTokenError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing token",

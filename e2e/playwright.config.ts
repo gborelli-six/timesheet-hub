@@ -4,7 +4,6 @@ import path from "path";
 // ADR-003-A: baseURL verso nginx (porta 80) che fa proxy a backend e frontend.
 // Variabili d'ambiente per sovrascrivere in CI o in scenari senza proxy.
 const BASE_URL = process.env.BASE_URL ?? "http://localhost";
-const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
 
 export const authDir = path.join(__dirname, ".auth");
 
@@ -36,31 +35,19 @@ export default defineConfig({
   },
 
   projects: [
-    // --- Setup projects per-ruolo (ADR-003-B) ---
-    // In E1: no-op (storageState vuoti creati da global-setup.ts).
-    // In E3: eseguono loginAs via POST /api/_test/session e salvano storageState.
+    // Setup unico per tutti e 3 i ruoli (STORY-020).
+    // Esegue auth.setup.ts prima dei test principali.
     {
-      name: "setup:employee",
-      testMatch: /auth\.setup\.ts/,
-      use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "setup:hr",
-      testMatch: /auth\.setup\.ts/,
-      use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "setup:admin",
+      name: "setup:auth",
       testMatch: /auth\.setup\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
 
-    // --- Progetto principale: smoke E1 + scenari E3+ ---
+    // Progetto principale: dipende da setup:auth (ADR-003-B).
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      // Attivare le dipendenze in E3 quando loginAs è funzionale:
-      // dependencies: ["setup:employee"],
+      dependencies: ["setup:auth"],
     },
   ],
 });

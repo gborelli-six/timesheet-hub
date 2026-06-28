@@ -96,6 +96,8 @@ interface TimesheetAdapter:
 
 ### ADR-001-D — Autenticazione: Google OAuth con vincolo di dominio
 
+> ✅ Implementata in E3 (STORY-017…020) — 2026-06-28
+
 **Decisione:** l'autenticazione avviene esclusivamente tramite Google OAuth 2.0, con constraint `hd` (hosted domain) che limita l'accesso alle sole email `@sixfeetup.it`.
 
 **Motivazione:** l'intera azienda usa Google Workspace. Google OAuth elimina la gestione di password, reset, e storage di credenziali. Il vincolo sul dominio è applicato sia lato Google Cloud Console (parametro `hd` nella richiesta) sia lato backend (verifica del campo `hd` nell'`id_token` decodificato).
@@ -111,6 +113,8 @@ interface TimesheetAdapter:
 ---
 
 ### ADR-001-E — Topologia di rete: nginx come reverse proxy su unico dominio
+
+> ✅ Implementata in E1 (STORY-004, STORY-006) — 2026-06-28
 
 **Decisione:** nginx è deployato come terzo servizio Railway e serve entrambe le applicazioni sotto lo stesso dominio, separando il traffico per path:
 
@@ -150,6 +154,8 @@ Lo slash finale in `proxy_pass http://backend.railway.internal:8000/` rimuove il
 ---
 
 ### ADR-001-F — Sessione: cookie httpOnly con SameSite=Strict
+
+> ✅ Implementata in E3 (STORY-018, STORY-019) — 2026-06-28
 
 **Decisione:** il JWT di sessione è trasmesso e conservato esclusivamente tramite cookie `httpOnly`. Non viene mai scritto in `localStorage` o `sessionStorage`.
 

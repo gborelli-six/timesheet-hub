@@ -1,16 +1,17 @@
 /**
  * Fixture loginAs — ADR-003-B.
  *
- * Stub in E1: non autentica (endpoint POST /_test/session risponde 501).
- * In E3: chiama l'endpoint, riceve il cookie JWT, salva storageState per-ruolo.
+ * E3 (STORY-020): chiama POST /api/_test/session, riceve cookie JWT,
+ * salva storageState per-ruolo in e2e/.auth/{role}.json.
  *
  * Uso nei test:
  *   import { authFixtures } from '@support/auth';
- *   const test = base.extend<{ loginAs: AuthFixtures['loginAs'] }>(authFixtures);
+ *   const test = base.extend(authFixtures);
  *   await loginAs('employee');
  */
+import path from "path";
 import { test as base } from "@playwright/test";
-import { Role, ROLE_EMAILS } from "./types";
+import { Role, ROLE_EMAILS, AUTH_STATE_FILES } from "./types";
 
 type AuthFixtures = {
   loginAs: (role: Role, email?: string) => Promise<void>;
@@ -22,25 +23,19 @@ export const authFixtures = base.extend<AuthFixtures>({
       const targetEmail = email ?? ROLE_EMAILS[role];
       const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
 
-      // --- E3: decommentare quando POST /_test/session è operativo ---
-      // const response = await context.request.post(`${backendUrl}/_test/session`, {
-      //   data: { email: targetEmail, role },
-      // });
-      // if (!response.ok()) {
-      //   throw new Error(
-      //     `loginAs(${role}) failed: ${response.status()} ${await response.text()}`
-      //   );
-      // }
-      // Il cookie JWT è salvato automaticamente nel context.
-      // Persistere con: await context.storageState({ path: AUTH_STATE_FILES[role] });
-      // ---
-
-      console.warn(
-        `[loginAs] STUB E1: autenticazione non attiva per ${role} (${targetEmail}). ` +
-          `Attivare in E3 quando /_test/session è operativo.`
+      const response = await context.request.post(
+        `${backendUrl}/api/_test/session`,
+        { data: { email: targetEmail, role } }
       );
-
-      void backendUrl;
+      if (!response.ok()) {
+        throw new Error(
+          `loginAs(${role}) failed: ${response.status()} ${await response.text()}`
+        );
+      }
+      // Il cookie JWT è salvato automaticamente nel context da Playwright.
+      await context.storageState({
+        path: path.join(__dirname, "..", AUTH_STATE_FILES[role]),
+      });
     };
 
     await use(loginAs);

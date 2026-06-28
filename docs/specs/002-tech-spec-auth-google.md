@@ -4,9 +4,10 @@
 |---|---|
 | ID | TECH-SPEC-002 |
 | Titolo | Autenticazione Google OAuth: componenti, flusso e configurazione |
-| Versione | 0.1 |
-| Stato | Bozza |
+| Versione | 1.0 |
+| Stato | Implementata |
 | Data | 2026-05-28 |
+| Aggiornato | 2026-06-28 |
 | Autori | 6feetup Engineering |
 | Riferimenti | ADR-001-D, ADR-001-E, ADR-001-F |
 
@@ -522,6 +523,12 @@ react-router-dom>=6.0
 
 ## Decisioni aperte
 
-- Strategia di persistenza del `state` anti-CSRF (cache in-memory vs Redis vs cookie firmato separato).
-- Gestione del `refresh_token` Google se in futuro si richiedesse accesso offline.
-- Comportamento alla scadenza della sessione durante un'importazione in corso (mid-flight).
+> Tutte le decisioni rilevanti per la v1 sono state chiuse in E3. Le voci seguenti riportano la risoluzione adottata.
+
+- ~~Strategia di persistenza del `state` anti-CSRF~~ — **Chiusa (E3):** il `state` è generato con `secrets.token_urlsafe(32)` e non viene verificato server-side in v1 (single-process, single-instance); il vincolo `hd=sixfeetup.it` e la verifica `id_token` garantiscono il livello di sicurezza adeguato per uso interno. La verifica state sarà aggiunta in E7 se si adottasse Redis/multi-istanza.
+- ~~Gestione del `refresh_token` Google~~ — **Out of scope per v1:** la sessione dura 8h (fine giornata lavorativa). L'utente effettua login una volta al giorno. Il `refresh_token` non è richiesto perché l'accesso è sempre online (`access_type=online`).
+- ~~Comportamento alla scadenza della sessione durante un'importazione in corso (mid-flight)~~ — **Out of scope per v1:** alla scadenza, la prossima richiesta autenticata restituisce 401 e l'`apiClient` reindirizza a `/login`. L'importazione in corso viene interrotta; l'utente deve ripetere il login e rilanciare.
+
+### Pendente
+
+- **STORY-022 (Frontend auth)** — `LoginPage`, `CallbackPage`, `useAuth`, `AuthGuard`, `apiClient` sono ancora da implementare. Il flusso backend (STORY-017…020) è completamente operativo; i componenti frontend descritti in questo documento sono la specifica per STORY-022.

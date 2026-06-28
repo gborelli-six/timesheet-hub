@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.config import settings
-from app.routers import health, users
+from app.routers import auth, health, users
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,8 @@ app = FastAPI(title="Timesheet Hub API", version="0.1.0", lifespan=lifespan)
 
 app.include_router(health.router)
 app.include_router(users.router)
+app.include_router(auth.router, prefix="/api")
+app.include_router(users.api_router)
 
 # Import lazy: il router test-only è incluso solo col flag attivo. Il modulo è
 # fisicamente presente nell'immagine (COPY app/ wholesale), ma non viene registrato
@@ -35,4 +37,4 @@ app.include_router(users.router)
 if settings.e2e_test_mode:
     from app.routers import e2e_test_router
 
-    app.include_router(e2e_test_router.router)
+    app.include_router(e2e_test_router.router, prefix="/api")

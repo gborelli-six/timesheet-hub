@@ -10,7 +10,7 @@
 
 ## STORY-017 — Modello `User` + migrazione `0002_create_users`
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Backend
 - **Dipende da**: STORY-012
 
@@ -32,7 +32,7 @@
 
 ## STORY-018 — JWT reale (`create_jwt` / `decode_jwt`) + `get_current_user` da cookie
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Backend
 - **Dipende da**: STORY-013, STORY-017
 
@@ -53,7 +53,7 @@
 
 ## STORY-019 — Router OAuth (`/login`, `/callback`, `/logout`) + `GET /api/me`
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Backend
 - **Dipende da**: STORY-017, STORY-018
 
@@ -73,7 +73,7 @@
 
 ## STORY-020 — Endpoint test-only `POST /api/_test/session` + E2E storageState per-ruolo
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Backend + E2E
 - **Dipende da**: STORY-019
 
@@ -93,7 +93,7 @@
 
 ## STORY-021 — Test integrazione & unit E3
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Test
 - **Dipende da**: STORY-017, STORY-018, STORY-019
 
@@ -118,7 +118,7 @@
 
 ## STORY-022 — Frontend auth (LoginPage, CallbackPage, useAuth, AuthGuard, apiClient)
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Frontend
 - **Dipende da**: STORY-019
 
@@ -137,7 +137,7 @@
 
 ## STORY-023 — Documentazione funzionale E3
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Docs
 - **Dipende da**: STORY-017, STORY-018, STORY-019, STORY-020, STORY-021, STORY-022
 
