@@ -75,7 +75,9 @@ def callback(
             detail="Parametro state non valido o assente",
         )
 
-    logger.info("OAuth callback: state OK, redirect_uri=%s", settings.google_redirect_uri)
+    logger.info(
+        "OAuth callback: state OK, redirect_uri=%s", settings.google_redirect_uri
+    )
     token_resp = http_requests.post(
         GOOGLE_TOKEN_URL,
         data={
@@ -88,10 +90,15 @@ def callback(
         timeout=10,
     )
     if not token_resp.ok:
-        logger.error("Google token exchange failed: %s %s", token_resp.status_code, token_resp.text)
+        logger.error(
+            "Google token exchange failed: %s %s",
+            token_resp.status_code,
+            token_resp.text,
+        )
+        error_desc = token_resp.json().get("error_description", token_resp.text)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Errore scambio token con Google: {token_resp.json().get('error_description', token_resp.text)}",
+            detail=f"Errore scambio token con Google: {error_desc}",
         )
     token_data = token_resp.json()
     id_token_str = token_data.get("id_token")

@@ -12,8 +12,10 @@ Applicazione per l'importazione di timesheet da file Excel verso backend gestion
 
 ```bash
 # 1. Copia le variabili d'ambiente
-cp .env.example .env
-# Modifica .env: aggiungi JWT_SECRET, TOKEN_ENCRYPT_KEY, VITE_GOOGLE_CLIENT_ID
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+# Modifica backend/.env: aggiungi JWT_SECRET, TOKEN_ENCRYPT_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+# Modifica frontend/.env: aggiungi VITE_GOOGLE_CLIENT_ID
 
 # 2. Avvia lo stack (postgres + backend + frontend)
 make up
@@ -21,6 +23,20 @@ make up
 # 3. Esegui le migrazioni DB al primo avvio
 make migrate
 ```
+
+## Setup hook pre-commit (una tantum per sviluppatore)
+
+```bash
+# Installa pre-commit (se non già presente)
+brew install pre-commit   # macOS
+
+# Registra gli hook nella repo
+make setup
+```
+
+Da questo momento ogni `git commit` esegue automaticamente:
+- `ruff` + `ruff-format` sul backend Python
+- `eslint`, `prettier`, `tsc --noEmit` sul frontend TypeScript
 
 ## Servizi
 

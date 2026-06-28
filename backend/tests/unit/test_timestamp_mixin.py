@@ -1,6 +1,5 @@
 """Test unit per TimestampMixin — nessuna connessione DB richiesta."""
 
-
 import pytest
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Mapped, mapped_column

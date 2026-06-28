@@ -5,7 +5,6 @@ Revises:
 Create Date: 2026-06-28
 """
 
-
 revision = "0001"
 down_revision = None
 branch_labels = None

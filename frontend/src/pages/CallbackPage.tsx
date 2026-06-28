@@ -29,13 +29,7 @@ export default function CallbackPage() {
 
   if (error) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-        p={3}
-      >
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" p={3}>
         <Alert severity="error" role="alert">
           {error}
         </Alert>

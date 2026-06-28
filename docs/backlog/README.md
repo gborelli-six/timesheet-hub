@@ -44,21 +44,18 @@ Storia → documentazione permanente:
 - STORY-015: `e2e/tests/rbac.spec.ts`
 - STORY-016: `docs/adr/ADR-004-orm-conventions.md`, `docs/specs/005-tech-spec-rbac.md`
 
-## E3 — Autenticazione & identità
+## E3 — Completata
 
-Flusso Google OAuth completo (`hd=sixfeetup.it`), JWT HS256 con claim `role`, cookie di sessione `httpOnly/SameSite=Strict` (8h). Crea e possiede la tabella `users`, sorgente dell'identità per tutti gli endpoint. Riusa lo scaffolding di E2 (`TimestampMixin`, workflow Alembic, `require_role`/`get_current_user`). Prerequisito di E5 (identità utente) e dello scenario #1 Auth/Smoke (P0) E2E.
+Tutte le 7 storie di E3 sono Done e rimosse dal backlog.
 
-Dettaglio storie: [`e3-stories.md`](e3-stories.md).
-
-| Storia | Titolo | Tipo | Dipende da | Stato |
-|---|---|---|---|---|
-| STORY-017 | Modello `User` + migrazione `0002_create_users` | Backend | STORY-012 | ✅ Done |
-| STORY-018 | JWT reale (`create_jwt`/`decode_jwt`) + `get_current_user` da cookie | Backend | STORY-013, STORY-017 | ✅ Done |
-| STORY-019 | Router OAuth (`/login`, `/callback`, `/logout`) + `GET /api/me` | Backend | STORY-017, STORY-018 | ✅ Done |
-| STORY-020 | Endpoint test-only `POST /api/_test/session` + E2E storageState per-ruolo | Backend + E2E | STORY-019 | ✅ Done |
-| STORY-021 | Test integrazione & unit E3 | Test | STORY-017, STORY-018, STORY-019 | ✅ Done |
-| STORY-022 | Frontend auth (LoginPage, CallbackPage, useAuth, AuthGuard, apiClient) | Frontend | STORY-019 | ✅ Done |
-| STORY-023 | Documentazione funzionale E3 | Docs | STORY-017…022 | ✅ Done |
+Storia → documentazione permanente:
+- STORY-017: `backend/app/models/user.py`, `backend/alembic/versions/0002_create_users.py`
+- STORY-018: `backend/app/core/security.py` (`create_jwt`/`decode_jwt`), `backend/app/core/rbac.py`
+- STORY-019: `backend/app/routers/auth.py`, `backend/app/routers/users.py` (`GET /api/me`)
+- STORY-020: `backend/app/routers/e2e_test_router.py`, `e2e/tests/auth.spec.ts`, `e2e/fixtures/storageState/`
+- STORY-021: `backend/tests/unit/test_security.py`, `backend/tests/unit/test_user_model.py`, `backend/tests/integration/test_auth.py`
+- STORY-022: `frontend/src/lib/apiClient.ts`, `frontend/src/hooks/useAuth.ts`, `frontend/src/components/AuthGuard.tsx`, `frontend/src/pages/LoginPage.tsx`, `frontend/src/pages/CallbackPage.tsx`
+- STORY-023: `docs/specs/002-tech-spec-auth-google.md`, `docs/guides/accesso-e-login.md`
 
 ## E4 — Style guide & shell applicativa
 

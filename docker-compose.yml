@@ -22,12 +22,20 @@ services:
     volumes:
       - ./backend:/app
       - /app/.venv
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-timesheet_hub}
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
-      TOKEN_ENCRYPT_KEY: ${TOKEN_ENCRYPT_KEY:-}
-      ENVIRONMENT: ${ENVIRONMENT:-local}
-      E2E_TEST_MODE: ${E2E_TEST_MODE:-false}
+      # Override: in Docker il DB è raggiungibile via hostname 'postgres', non localhost
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-timesheet_hub}
+      # Pass-through da shell (CI/GitHub Secrets); se assenti, vince env_file (dev locale)
+      - JWT_SECRET
+      - TOKEN_ENCRYPT_KEY
+      - ENVIRONMENT
+      - E2E_TEST_MODE
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - GOOGLE_REDIRECT_URI
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,8 +49,12 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    env_file:
+      - path: ./frontend/.env
+        required: false
     environment:
-      VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+      # Pass-through da shell (CI/GitHub Secrets); se assente, vince env_file (dev locale)
+      - VITE_GOOGLE_CLIENT_ID
     ports:
       - "5173:5173"
 

@@ -1,4 +1,7 @@
-.PHONY: up down logs migrate makemigration test-backend test-frontend e2e lint format type-check check seed
+.PHONY: setup up down logs migrate makemigration test-backend test-frontend e2e lint format type-check check seed
+
+setup: ## Prima configurazione: installa hook pre-commit
+	pre-commit install
 
 up:
 	docker compose up -d
