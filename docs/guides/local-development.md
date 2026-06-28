@@ -1,7 +1,7 @@
 # Guida allo sviluppo locale — Timesheet Hub
 
-> Stato: SCHELETRO (E1). Sezioni con `TODO` da completare man mano che le storie E1 chiudono.
-> Riferimenti: ADR-001 · ADR-002 · ADR-003 · `docs/timesheet-hub-roadmap.md`
+> Aggiornato: E2 (STORY-012). Workflow Alembic completo.
+> Riferimenti: ADR-001 · ADR-002 · ADR-003 · ADR-004 · `docs/timesheet-hub-roadmap.md`
 
 ## Introduzione
 
@@ -169,14 +169,58 @@ In dev esistono due modalità:
 
 ## 7. Migrazioni database (Alembic)
 
-```bash
-make migrate           # alembic upgrade head (applica tutte le pending)
-make makemigration     # alembic revision --autogenerate -m "<messaggio>"
+### Naming convention
+
+I file di migrazione seguono il pattern `NNNN_verbo_oggetto.py`:
+
+```
+0001_init_baseline.py
+0002_create_users.py
+0003_add_import_jobs.py
 ```
 
-- In E1 non esistono tabelle feature (schema dati completo: E2/E3+).
-- Il comando `preDeployCommand` su Railway esegue lo stesso `alembic upgrade head` prima dello swap del container (STORY-006).
-- TODO: convenzioni di naming delle migration e workflow di revisione (E2).
+Il numero progressivo garantisce l'ordine cronologico; `verbo_oggetto` descrive l'intenzione (`create`, `add`, `rename`, `drop`, ecc.).
+
+### Workflow
+
+**1. Generare una nuova migration**
+
+```bash
+make makemigration msg="create_import_jobs"
+# → backend/alembic/versions/NNNN_create_import_jobs.py
+```
+
+Alembic esegue `--autogenerate` confrontando i modelli SQLAlchemy con lo schema attuale del DB. Il file generato va **sempre revisionato manualmente** prima di applicarlo.
+
+**2. Review umana (checklist obbligatoria)**
+
+Prima di committare o applicare la migration, verificare:
+
+- [ ] `downgrade()` è implementato e il rollback è testato mentalmente
+- [ ] Nessun dato viene distrutto senza un commento `# WARNING: destructive`
+- [ ] Tipi PostgreSQL compatibili con il driver psycopg v3 (evitare tipi non-nativi non supportati)
+- [ ] Se la migration include `ALTER TABLE` su tabella grande: valutare lock e finestra di manutenzione
+
+**3. Applicare le migration**
+
+```bash
+make migrate   # alembic upgrade head — applica tutte le pending
+```
+
+Stesso comando eseguito da `preDeployCommand` su Railway prima dello swap del container (STORY-006).
+
+**4. Rollback**
+
+```bash
+docker compose exec backend uv run alembic downgrade -1   # torna indietro di una revision
+docker compose exec backend uv run alembic history        # lista la cronologia
+docker compose exec backend uv run alembic current        # revision corrente del DB
+```
+
+### Note
+
+- La prima migration (`0001_init_baseline.py`) è vuota: stabilisce il punto di partenza formale della cronologia. Le tabelle reali vengono aggiunte da E3 in poi.
+- Lo schema dei constraint (FK, IX, UQ, CK, enum) segue la naming convention in `backend/app/db/conventions.py` (ADR-004-C).
 
 ## 8. Qualità del codice: lint, format, pre-commit
 

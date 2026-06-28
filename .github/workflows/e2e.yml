@@ -1,9 +1,7 @@
 name: E2E Smoke
 
-# Smoke E1: verifica build & boot dello stack (compose up → /health 200 via nginx, FE serve index.html).
-# Lo scenario auth completo (#1) richiede JWT reali (E3, ADR-003-B) ed è fuori scope E1.
-# E2E_TEST_MODE=true è impostato per coerenza con la suite futura (ADR-003-B),
-# ma in E1 nessuna rotta test-only viene invocata dallo smoke.
+# Suite E2E: smoke (build & boot) + rbac (protezione endpoint, STORY-015).
+# E2E_TEST_MODE=true abilita POST /api/_test/session per i test RBAC (ADR-003-B).
 
 on:
   pull_request:
@@ -93,9 +91,9 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Run smoke tests
+      - name: Run E2E suite
         working-directory: e2e
-        run: npx playwright test --grep @smoke
+        run: npx playwright test --grep "@smoke|@rbac"
 
       - name: Upload test results on failure
         if: failure()

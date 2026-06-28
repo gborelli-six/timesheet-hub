@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.config import settings
-from app.routers import health
+from app.routers import health, users
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Timesheet Hub API", version="0.1.0", lifespan=lifespan)
 
 app.include_router(health.router)
+app.include_router(users.router)
 
 # Import lazy: il router test-only è incluso solo col flag attivo. Il modulo è
 # fisicamente presente nell'immagine (COPY app/ wholesale), ma non viene registrato
