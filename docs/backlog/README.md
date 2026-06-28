@@ -1,6 +1,6 @@
 # Backlog Timesheet Hub
 
-> Aggiornato: 2026-06-28 — E1 completata; E2 completata; E3 dettagliata (002-tech-spec-auth-google); E5 dettagliata (ADR-005)
+> Aggiornato: 2026-06-28 — E1 completata; E2 completata; E3 dettagliata (002-tech-spec-auth-google); E4 dettagliata (MUI v7 + Mantis + claude.ai/design); E5 dettagliata (ADR-005)
 
 Il backlog è effimero: le storie completate vengono rimosse dopo il merge su `main` e l'aggiornamento della documentazione permanente (ADR, spec, guide). I dati persistenti vivono in ADR/spec/test/codice, non qui.
 
@@ -12,6 +12,7 @@ Riferimenti: `docs/timesheet-hub-roadmap.md` · `docs/adr/ADR-001` · `docs/adr/
 | E1 | 10 | 0 | 0 | 0 | 10 ✅ |
 | E2 | 6 | 0 | 0 | 0 | 6 ✅ |
 | E3 | 0 | 0 | 7 | 0 | 7 |
+| E4 | 0 | 0 | 7 | 0 | 7 |
 | E5 | 0 | 0 | 6 | 0 | 6 |
 
 ## E1 — Completata
@@ -58,6 +59,22 @@ Dettaglio storie: [`e3-stories.md`](e3-stories.md).
 | STORY-022 | Frontend auth (LoginPage, CallbackPage, useAuth, AuthGuard, apiClient) | Frontend | STORY-019 | ⬜ Todo |
 | STORY-023 | Documentazione funzionale E3 | Docs | STORY-017…022 | ⬜ Todo |
 
+## E4 — Style guide & shell applicativa
+
+Token visivi MUI v7 (palette, tipografia, spaziatura), configurazione `ThemeProvider`, shell Mantis con Header/SideNav/navigazione per-ruolo, LoginPage integrata con `AuthGuard` (E3), libreria componenti base. Sblocca tutte le epiche UI successive (E5–E10). Implementazione assistita da claude.ai/design — stack React 19 + MUI v7 + Mantis, desktop-only per v1.
+
+Dettaglio storie: [`e4-stories.md`](e4-stories.md).
+
+| Storia | Titolo | Tipo | Dipende da | Stato |
+|---|---|---|---|---|
+| STORY-024 | Design brief & token MUI — palette, tipografia, spaziatura | UX/UI | — | ⬜ Todo |
+| STORY-025 | Configurazione tema MUI (`createTheme`, `ThemeProvider`) | Frontend | STORY-024 | ⬜ Todo |
+| STORY-026 | Shell Mantis — Header, SideNav, menu e routing | Frontend | STORY-025 | ⬜ Todo |
+| STORY-027 | LoginPage con MUI + integrazione AuthGuard | Frontend | STORY-025, STORY-022 | ⬜ Todo |
+| STORY-028 | Wrapper componenti base (PageHeader, StatusBadge, LoadingOverlay, ConfirmDialog) | Frontend | STORY-025 | ⬜ Todo |
+| STORY-029 | Test E2E — navigazione shell e flusso login/logout | E2E | STORY-026, STORY-027 | ⬜ Todo |
+| STORY-030 | Documentazione E4 | Docs | STORY-025…STORY-029 | ⬜ Todo |
+
 ## E5 — Profilo & token utente
 
 Gestione sicura delle credenziali dei connettori per-utente (identificativo in chiaro + segreto cifrato write-only). Decisioni in [`ADR-005`](../adr/ADR-005-connector-credentials-security.md). Prerequisito dell'import (E8); dipende da E3 (identità utente) ed E4 (shell UI).
@@ -74,7 +91,6 @@ Dettaglio storie: [`e5-stories.md`](e5-stories.md) — ID `STORY-E5-N` provvisor
 | STORY-E5-6 | Documentazione E5 | Docs | STORY-E5-1…5 | ⬜ Todo |
 
 ## Prossime epiche
-- **E4**: shell UI autenticata — layout, navigazione per-ruolo, dashboard (dipende da E3)
 - **E7/E8**: import wizard + adapter reali (Jira/Odoo/Linear/Asana) + dati E2E__ esercitati
 
 ## Note sullo scope E1
