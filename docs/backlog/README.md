@@ -68,21 +68,18 @@ Storia → documentazione permanente:
 - STORY-022: `frontend/src/lib/apiClient.ts`, `frontend/src/hooks/useAuth.ts`, `frontend/src/components/AuthGuard.tsx`, `frontend/src/pages/LoginPage.tsx`, `frontend/src/pages/CallbackPage.tsx`
 - STORY-023: `docs/specs/002-tech-spec-auth-google.md`, `docs/guides/accesso-e-login.md`
 
-## E4 — Style guide & shell applicativa
+## E4 — Completata
 
-Token visivi MUI v7 (palette, tipografia, spaziatura), configurazione `ThemeProvider`, shell Mantis con Header/SideNav/navigazione per-ruolo, LoginPage integrata con `AuthGuard` (E3), libreria componenti base. Sblocca tutte le epiche UI successive (E5–E10). Implementazione assistita da claude.ai/design — stack React 19 + MUI v7 + Mantis, desktop-only per v1.
+Tutte le 7 storie di E4 sono Done e rimosse dal backlog.
 
-Dettaglio storie: [`e4-stories.md`](e4-stories.md).
-
-| Storia | Titolo | Tipo | Dipende da | Stato |
-|---|---|---|---|---|
-| STORY-024 | Design brief & token MUI — palette, tipografia, spaziatura | UX/UI | — | ✅ Done |
-| STORY-025 | Configurazione tema MUI (`createTheme`, `ThemeProvider`) | Frontend | STORY-024 | ✅ Done |
-| STORY-026 | Shell Mantis — Header, SideNav, menu e routing | Frontend | STORY-025 | ✅ Done |
-| STORY-027 | LoginPage con MUI + integrazione AuthGuard | Frontend | STORY-025, STORY-022 | ✅ Done |
-| STORY-028 | Wrapper componenti base (PageHeader, StatusBadge, LoadingOverlay, ConfirmDialog) | Frontend | STORY-025 | ✅ Done |
-| STORY-029 | Test E2E — navigazione shell e flusso login/logout | E2E | STORY-026, STORY-027 | ✅ Done |
-| STORY-030 | Documentazione E4 | Docs | STORY-025…STORY-029 | ✅ Done |
+Storia → documentazione permanente:
+- STORY-024: `docs/specs/004-design-tokens.md` (palette, tipografia, spaziatura MUI v7)
+- STORY-025: `frontend/src/theme/index.ts` (`createTheme`, `ThemeProvider`)
+- STORY-026: `frontend/src/components/shell/AppShell.tsx` (Header, SideNav, routing per-ruolo)
+- STORY-027: `frontend/src/pages/LoginPage.tsx` (MUI + AuthGuard)
+- STORY-028: `frontend/src/components/ui/` (PageHeader, StatusBadge, LoadingOverlay, ConfirmDialog)
+- STORY-029: `e2e/tests/shell.spec.ts` (navigazione shell e flusso login/logout)
+- STORY-030: `docs/guides/navigazione-e-interfaccia.md`
 
 ## E5 — Profilo & token utente
 
