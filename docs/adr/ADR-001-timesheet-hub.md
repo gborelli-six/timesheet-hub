@@ -249,3 +249,27 @@ A runtime, il token viene decifrato in memoria solo al momento della chiamata AP
 - Flusso dettagliato di importazione Excel (upload → preview → mapping → submit → log).
 - Gestione degli errori parziali (alcune righe importate, altre fallite).
 - Strategia di notifica in caso di token scaduti o errori di importazione.
+
+---
+
+## Appendice E4 — Decisioni shell & tema (STORY-025/026)
+
+> Implementato in E4 (STORY-025…029) — 2026-06-29
+
+Le seguenti decisioni di E4 non sono ovvie dalla sola lettura del codice.
+
+**1. Palette `sidebar` via module augmentation TypeScript**
+
+MUI v7 non espone una namespace `sidebar` nella palette. Piuttosto che hardcodare valori hex nel componente shell, la palette è estesa con `declare module '@mui/material/styles'` in `frontend/src/theme/index.ts`. Questo rende `theme.palette.sidebar.background` type-safe e accessibile in tutti i componenti tramite il tema, con un unico punto di modifica.
+
+**2. Dark mode esclusa esplicitamente**
+
+`mode: 'light'` è impostato in modo fisso nel tema. Non è stato aggiunto nessun toggle né `PaletteMode`. La dark mode aumenterebbe la complessità del tema (colori semantici, sidebar, superfici) senza beneficio per uno strumento interno desktop-only usato in orario lavorativo. La decisione è reversibile in una versione futura aggiungendo un secondo oggetto tema.
+
+**3. SVG icons inline — nessuna libreria di icone**
+
+La shell usa 5 icone (import, log, profilo, admin, logout). Invece di aggiungere `@mui/icons-material` (~6 MB) o `lucide-react` come dipendenza, i path SVG sono embedded come costanti stringa in `AppShell.tsx`. Per un set fisso e piccolo è la soluzione con il minor overhead di build e bundle.
+
+**4. CSS Grid per il layout shell — nessun Drawer MUI**
+
+Il layout `AppShell` usa CSS Grid (`gridTemplateRows: '60px 1fr'`, `gridTemplateColumns: '244px 1fr'`) anziché il componente `Drawer` di MUI o il pattern classico Mantis con `Drawer` permanente. La shell è desktop-only (nessun breakpoint mobile, nessun `useMediaQuery`), quindi la sidebar non ha mai bisogno di collassarsi. CSS Grid in questo contesto è più prevedibile e meno codice rispetto a un Drawer configurato come permanente.

@@ -12,9 +12,10 @@
 
 ## STORY-024 — Design brief & token MUI (palette, tipografia, spaziatura)
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: UX/UI
 - **Dipende da**: —
+- **Riferimento design**: [Design System.html](https://claude.ai/design/p/e1aac35b-a506-46e1-83e0-dbf593de6b87?file=Design+System.html)
 
 **Obiettivo**: produrre un documento di riferimento visivo che guida il tema MUI (`createTheme`) e i prompt delle sessioni claude.ai/design per tutte le storie successive di E4.
 
@@ -32,9 +33,10 @@
 
 ## STORY-025 — Configurazione tema MUI (`createTheme`, `ThemeProvider`)
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Frontend
 - **Dipende da**: STORY-024
+- **Riferimento design**: [Design System.html](https://claude.ai/design/p/e1aac35b-a506-46e1-83e0-dbf593de6b87?file=Design+System.html)
 
 **Obiettivo**: il tema MUI centralizzato è disponibile a tutta l'app; le storie successive non hardcodano colori o font.
 
@@ -52,9 +54,10 @@
 
 ## STORY-026 — Shell Mantis — Header, SideNav, menu e routing
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Frontend
 - **Dipende da**: STORY-025
+- **Riferimento design**: [App Shell.html](https://claude.ai/design/p/e1aac35b-a506-46e1-83e0-dbf593de6b87?file=App+Shell.html)
 
 **Obiettivo**: la shell Mantis è il layout di tutte le pagine autenticate; la navigazione per-ruolo è funzionante.
 
@@ -75,9 +78,10 @@
 
 ## STORY-027 — LoginPage con MUI + integrazione AuthGuard
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Frontend
 - **Dipende da**: STORY-025, STORY-022 (E3)
+- **Riferimento design**: [Login.html — versione B (desktop)](https://claude.ai/design/p/e1aac35b-a506-46e1-83e0-dbf593de6b87?file=Login.html)
 
 **Obiettivo**: la schermata di login è coerente con il tema MUI e si attiva automaticamente tramite `AuthGuard` (STORY-022) quando la sessione è assente o scaduta.
 
@@ -97,9 +101,10 @@
 
 ## STORY-028 — Wrapper componenti base
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Frontend
 - **Dipende da**: STORY-025
+- **Riferimento design**: [Design System.html](https://claude.ai/design/p/e1aac35b-a506-46e1-83e0-dbf593de6b87?file=Design+System.html)
 
 **Obiettivo**: set minimo di componenti wrapper/composizione che le epiche E5–E10 importeranno; non duplica ciò che MUI v7 fornisce già.
 
@@ -117,7 +122,7 @@
 
 ## STORY-029 — Test E2E shell — navigazione e flusso login/logout
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: E2E
 - **Dipende da**: STORY-026, STORY-027
 
@@ -137,7 +142,7 @@
 
 ## STORY-030 — Documentazione E4
 
-- **Stato**: ⬜ Todo
+- **Stato**: ✅ Done
 - **Tipo**: Docs
 - **Dipende da**: STORY-025, STORY-026, STORY-027, STORY-028, STORY-029
 

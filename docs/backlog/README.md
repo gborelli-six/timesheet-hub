@@ -1,20 +1,31 @@
 # Backlog Timesheet Hub
 
-> Aggiornato: 2026-06-28 — E1 completata; E2 completata; E3 completata (tutte 7 storie Done, STORY-023 docs); E4 dettagliata (MUI v7 + Mantis + claude.ai/design); E5 dettagliata (ADR-005); E6 dettagliata (parsing Excel & Normalizer)
+> Aggiornato: 2026-06-29 — E1/E2/E3/E4 completate; E5/E6 dettagliate. **Riprioritizzazione employee-first** (roadmap v0.5): rilascio in ordine 🏁 Employee MVP → 🏁 Admin → 🏁 HR. Wizard e log spezzati in E8a/E9a (employee) ed E8b/E9b (HR); nuova epica E3bis (gestione ruoli); seed config Odoo in E7.
 
 Il backlog è effimero: le storie completate vengono rimosse dopo il merge su `main` e l'aggiornamento della documentazione permanente (ADR, spec, guide). I dati persistenti vivono in ADR/spec/test/codice, non qui.
 
 Riferimenti: `docs/timesheet-hub-roadmap.md` · `docs/adr/ADR-001` · `docs/adr/ADR-002` · `docs/adr/ADR-003` · `docs/adr/ADR-004` · `docs/adr/ADR-005` · `docs/specs/002-tech-spec-auth-google.md` · `docs/specs/004-e2e-test-plan.md`
 
 ## Avanzamento per epica
-| Epica | Done | In Progress | Todo | Blocked | Totale |
-|---|---|---|---|---|---|
-| E1 | 10 | 0 | 0 | 0 | 10 ✅ |
-| E2 | 6 | 0 | 0 | 0 | 6 ✅ |
-| E3 | 7 | 0 | 0 | 0 | 7 ✅ |
-| E4 | 0 | 0 | 7 | 0 | 7 |
-| E5 | 0 | 0 | 6 | 0 | 6 |
-| E6 | 0 | 0 | 6 | 0 | 6 |
+
+Ordine di rilascio **employee-first** (vedi `docs/timesheet-hub-roadmap.md` v0.5): E4 → E5 → E6 → E7 → **E8a** → **E9a** [🏁 Employee MVP] → **E3bis** → E10 [🏁 Admin] → **E8b** → **E9b** [🏁 HR] → E11.
+
+| Epica | Done | In Progress | Todo | Blocked | Totale | Note |
+|---|---|---|---|---|---|---|
+| E1 | 10 | 0 | 0 | 0 | 10 ✅ | |
+| E2 | 6 | 0 | 0 | 0 | 6 ✅ | |
+| E3 | 7 | 0 | 0 | 0 | 7 ✅ | |
+| E4 | 7 | 0 | 0 | 0 | 7 ✅ | shell — completata |
+| E5 | 0 | 0 | 6 | 0 | 6 | profilo/token — dettagliata |
+| E6 | 0 | 0 | 6 | 0 | 6 | parsing Excel — dettagliata |
+| E7 | 0 | 0 | TBD | 0 | TBD | adapter Odoo + seed config — storie just-in-time |
+| E8a | 0 | 0 | TBD | 0 | TBD | wizard employee — storie just-in-time |
+| E9a | 0 | 0 | TBD | 0 | TBD | log employee — storie just-in-time |
+| E3bis | 0 | 0 | TBD | 0 | TBD | gestione ruoli — storie just-in-time |
+| E10 | 0 | 0 | TBD | 0 | TBD | pannello Admin — storie just-in-time |
+| E8b | 0 | 0 | TBD | 0 | TBD | wizard HR — storie just-in-time |
+| E9b | 0 | 0 | TBD | 0 | TBD | log HR — storie just-in-time |
+| E11 | 0 | 0 | TBD | 0 | TBD | adapter aggiuntivi — post-v1 |
 
 ## E1 — Completata
 
@@ -65,17 +76,17 @@ Dettaglio storie: [`e4-stories.md`](e4-stories.md).
 
 | Storia | Titolo | Tipo | Dipende da | Stato |
 |---|---|---|---|---|
-| STORY-024 | Design brief & token MUI — palette, tipografia, spaziatura | UX/UI | — | ⬜ Todo |
-| STORY-025 | Configurazione tema MUI (`createTheme`, `ThemeProvider`) | Frontend | STORY-024 | ⬜ Todo |
-| STORY-026 | Shell Mantis — Header, SideNav, menu e routing | Frontend | STORY-025 | ⬜ Todo |
-| STORY-027 | LoginPage con MUI + integrazione AuthGuard | Frontend | STORY-025, STORY-022 | ⬜ Todo |
-| STORY-028 | Wrapper componenti base (PageHeader, StatusBadge, LoadingOverlay, ConfirmDialog) | Frontend | STORY-025 | ⬜ Todo |
-| STORY-029 | Test E2E — navigazione shell e flusso login/logout | E2E | STORY-026, STORY-027 | ⬜ Todo |
-| STORY-030 | Documentazione E4 | Docs | STORY-025…STORY-029 | ⬜ Todo |
+| STORY-024 | Design brief & token MUI — palette, tipografia, spaziatura | UX/UI | — | ✅ Done |
+| STORY-025 | Configurazione tema MUI (`createTheme`, `ThemeProvider`) | Frontend | STORY-024 | ✅ Done |
+| STORY-026 | Shell Mantis — Header, SideNav, menu e routing | Frontend | STORY-025 | ✅ Done |
+| STORY-027 | LoginPage con MUI + integrazione AuthGuard | Frontend | STORY-025, STORY-022 | ✅ Done |
+| STORY-028 | Wrapper componenti base (PageHeader, StatusBadge, LoadingOverlay, ConfirmDialog) | Frontend | STORY-025 | ✅ Done |
+| STORY-029 | Test E2E — navigazione shell e flusso login/logout | E2E | STORY-026, STORY-027 | ✅ Done |
+| STORY-030 | Documentazione E4 | Docs | STORY-025…STORY-029 | ✅ Done |
 
 ## E5 — Profilo & token utente
 
-Gestione sicura delle credenziali dei connettori per-utente (identificativo in chiaro + segreto cifrato write-only). Decisioni in [`ADR-005`](../adr/ADR-005-connector-credentials-security.md). Prerequisito dell'import (E8); dipende da E3 (identità utente) ed E4 (shell UI).
+Gestione sicura delle credenziali dei connettori per-utente (identificativo in chiaro + segreto cifrato write-only). Decisioni in [`ADR-005`](../adr/ADR-005-connector-credentials-security.md). Prerequisito dell'import (E8a); dipende da E3 (identità utente) ed E4 (shell UI).
 
 Dettaglio storie: [`e5-stories.md`](e5-stories.md) — ID `STORY-E5-N` provvisori, da rinumerare in sequenza globale all'inserimento in sprint.
 
@@ -90,7 +101,7 @@ Dettaglio storie: [`e5-stories.md`](e5-stories.md) — ID `STORY-E5-N` provvisor
 
 ## E6 — Parsing Excel & Normalizer
 
-Parsing client-side SheetJS, normalizzazione in `TimesheetEntry[]` con `ColumnMapping` configurabile (default hardcoded per v1; pannello di config in E10), preview con warning non bloccanti per righe anomale. Tutta la logica è frontend — nessuna tabella DB, nessun upload al server durante il parsing. Sblocca E8 (wizard orchestrazione end-to-end); dipende da E4 (componenti MUI) ed E3 (identità utente per i test E2E).
+Parsing client-side SheetJS, normalizzazione in `TimesheetEntry[]` con `ColumnMapping` configurabile (default hardcoded per v1; pannello di config in E10), preview con warning non bloccanti per righe anomale. Tutta la logica è frontend — nessuna tabella DB, nessun upload al server durante il parsing. Sblocca E8a (wizard orchestrazione end-to-end); dipende da E4 (componenti MUI) ed E3 (identità utente per i test E2E).
 
 Dettaglio storie: [`e6-stories.md`](e6-stories.md).
 
@@ -103,9 +114,17 @@ Dettaglio storie: [`e6-stories.md`](e6-stories.md).
 | STORY-E6-5 | Fixture Excel E2E + scenari E2E #6/#7/#8 | E2E | STORY-E6-3, STORY-E6-4 | ⬜ Todo |
 | STORY-E6-6 | Documentazione E6 | Docs | STORY-E6-1…5 | ⬜ Todo |
 
-## Prossime epiche
-- **E6**: parsing Excel & Normalizer (prerequisito di E8) — da fare prima di E7/E8
-- **E7/E8**: import wizard + adapter reali (Jira/Odoo/Linear/Asana) + dati E2E__ esercitati
+## Prossima epica da implementare
+**E5** (profilo & token utente) — E4 completata. Dipende da E3 (✅) ed E4 (✅), nessun blocco.
+
+## Roadmap epiche successive (storie da scrivere just-in-time)
+Le epiche E7, E8a, E9a, E3bis, E10, E8b, E9b non hanno ancora file storie: si dettagliano al momento dell'inserimento in sprint, nell'ordine di rilascio sopra.
+
+- **Numerazione storie**: gli `STORY-NNN` sono globali e progressivi. E4 termina a **STORY-030**; E5/E6 hanno ID provvisori (`STORY-E5-N`/`STORY-E6-N`) da fissare in sequenza al commit in sprint. Le epiche successive riprendono da lì.
+- **Fase Employee** (🏁 MVP): E7 (adapter Odoo + seed config Odoo) · E8a (wizard self-import) · E9a (log propri).
+- **Fase Admin** (🏁): E3bis (gestione ruoli, backend identità) · E10 (pannello Admin UI: utenti/ruoli, CRUD backend, mapping Excel).
+- **Fase HR** (🏁): E8b (Step 0 selezione dipendente + `POST /imports?for=`) · E9b (vista di tutti i log + filtri avanzati).
+- **Post-v1**: E11 (adapter Jira/Linear/Asana).
 
 ## Note sullo scope E1
 - L'E2E "verde" in E1 è uno **smoke infrastrutturale** (build & boot). Lo scenario #1 Auth/Smoke (P0) richiede JWT reali — dipende da E3.

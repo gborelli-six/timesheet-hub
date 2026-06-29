@@ -35,8 +35,8 @@ async def create_test_session(body: TestSessionRequest, response: Response) -> d
         key="session",
         value=token,
         httponly=True,
-        secure=True,
-        samesite="strict",
+        secure=False,  # E2E gira su HTTP — Secure=True bloccherebbe il cookie
+        samesite="lax",  # lax necessario su HTTP (strict richiederebbe HTTPS)
         max_age=28800,
         path="/",
     )

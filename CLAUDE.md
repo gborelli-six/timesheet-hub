@@ -197,18 +197,26 @@ npx playwright show-report             # apri ultimo report
 
 ## Stato epiche
 
+Ordine di rilascio **employee-first** (roadmap v0.5): 🏁 Employee MVP → 🏁 Admin → 🏁 HR.
+
 | Epica | Stato | Storie | Descrizione | Dipende da |
 |---|---|---|---|---|
 | E1 | ✅ Done | 10 | Infrastruttura, CI, Docker, nginx, Playwright skeleton | — |
 | E2 | ✅ Done | 6 | ORM, Alembic, RBAC middleware, TimestampMixin | — |
-| E3 | ✅ Done | 7 | Google OAuth, JWT, cookie httpOnly, tabella `users` | E2 |
+| E3 | ✅ Done | 7 | Google OAuth, JWT, cookie httpOnly, tabella `users` (ruolo `employee` di default) | E2 |
 | E4 | ⬜ Todo | 7 | Design token MUI v7, Mantis shell (Header, SideNav, routing per-ruolo) | — |
 | E5 | ⬜ Todo | 6 | Profilo & token utente, AES-256-GCM, tabella `user_tokens`, API write-only | E3, E4 |
 | E6 | ⬜ Todo | 6 | Upload Excel, SheetJS parsing, `TimesheetEntry[]`, Normalizer | E4 |
-| E7 | ⬜ Todo | TBD | Architettura plug-in adapter + adapter Odoo (JSON-RPC) | E5 |
-| E8 | ⬜ Todo | TBD | Wizard importazione 4-step (orchestrazione end-to-end) | E5, E6, E7 |
-| E9 | ⬜ Todo | TBD | Log importazioni (vista, filtri, dettaglio per ruolo) | E8 |
-| E10 | ⬜ Todo | TBD | Pannello Admin (utenti, backend config, mapping Excel) | E8 |
+| E7 | ⬜ Todo | TBD | Architettura plug-in adapter + adapter Odoo (JSON-RPC) + **seed config Odoo di default** | E5 |
+| E8a | ⬜ Todo | TBD | Wizard importazione **Employee** (self-import, step 1–4, no Step 0) | E5, E6, E7 |
+| E9a | ⬜ Todo | TBD | Log importazioni **Employee** (solo propri log + dettaglio) | E8a |
+| — | 🏁 | — | **Milestone: Employee MVP** | — |
+| E3bis | ⬜ Todo | TBD | Gestione ruoli (API assegnazione/promozione employee/hr/admin) | E3 |
+| E10 | ⬜ Todo | TBD | Pannello Admin (UI utenti/ruoli su E3bis, backend config CRUD, mapping Excel) | E3bis, E8a |
+| — | 🏁 | — | **Milestone: Admin** | — |
+| E8b | ⬜ Todo | TBD | Wizard import — incremento **HR** (Step 0 selezione dipendente, `POST /imports?for=<email>`) | E8a, E3bis |
+| E9b | ⬜ Todo | TBD | Log importazioni — incremento **HR** (vede tutti i log + filtri avanzati) | E9a, E3bis |
+| — | 🏁 | — | **Milestone: HR** | — |
 | E11 | ⬜ Todo | TBD | Adapter aggiuntivi (Jira, Linear, Asana — post-v1) | E7 |
 
 **Prossima epica da implementare:** E4 (nessun blocco, può partire subito)
@@ -232,3 +240,5 @@ npx playwright show-report             # apri ultimo report
 | Spec RBAC | `docs/specs/005-tech-spec-rbac.md` | Permessi per ruolo, enforcement pattern |
 | Backlog | `docs/backlog/README.md` | Stato attuale storie, link ai file per epica |
 | Agenti | `.claude/agents/` | Definizioni complete dei 10 agenti Conductor |
+| Design | `https://claude.ai/design/p/e1aac35b-a506-46e1-83e0-dbf593de6b87` | Progetto "Timesheet hub" su claude.ai/design — Design System, App Shell, Login screen |
+| Claude Design MCP | `https://api.anthropic.com/v1/design/mcp` (auth: `/design-login`) | MCP per importare mockup dal progetto design — usare prima di implementare UI E4–E10 |

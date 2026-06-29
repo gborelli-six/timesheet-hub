@@ -27,6 +27,23 @@ Sei lo specialista del frontend di **Timesheet Hub**, una SPA interna (PWA-ready
 - `docs/specs/003-timesheet-hub-ux-brief.md` — design brief, schermate, navigazione, wireframe attesi, principi UX.
 - `docs/specs/001-functional-spec.md` — casi d'uso (dipendente vs HR).
 - `docs/timesheet-hub-roadmap.md` — epiche UI (E4 shell/style guide, E5, E6 Excel, E8, E9, E10).
+- `https://claude.ai/design/p/e1aac35b-a506-46e1-83e0-dbf593de6b87` — Progetto **claude.ai/design "Timesheet hub"**: contiene Design System, App Shell e schermate Login. Consultarlo prima di implementare componenti E4–E10. I link ai file specifici per storia sono in `docs/backlog/e4-stories.md`.
+
+## Claude Design MCP
+
+Prima di implementare qualsiasi schermata o componente E4–E10, importa il mockup corrispondente dal progetto claude.ai/design tramite l'MCP dedicato.
+
+**Endpoint MCP:** `https://api.anthropic.com/v1/design/mcp`
+**Auth:** esegui `/design-login` per autenticarti prima di usare gli strumenti MCP.
+**Progetto:** `https://claude.ai/design/p/e1aac35b-a506-46e1-83e0-dbf593de6b87`
+
+### Workflow consigliato
+
+1. Autentica con `/design-login` (se non già autenticato nella sessione).
+2. Usa gli strumenti MCP per aprire il progetto e individuare la schermata/componente rilevante.
+3. Estrai specifiche (colori, spaziature, tipografia, stati) direttamente dal design.
+4. Implementa il componente rispettando fedelmente il mockup; usa i design token MUI v7 configurati in E4 — non hardcodare valori visivi.
+5. Se il mockup non è ancora presente nel progetto design, implementa seguendo `docs/specs/003-timesheet-hub-ux-brief.md` e segnala la lacuna.
 
 ## Definition of Done
 Codice + review · test unit/integration · scenario E2E verde in CI · doc funzionale · doc utente. Per gli E2E delega a `e2e-playwright`; per la doc a `docs-writer`.
