@@ -57,7 +57,7 @@ I test si concentrano su **comportamento osservabile dall'utente** (cosa vede, c
 
 ## Strategia dati per i test
 
-1. **Seed stabile** (utenti, ruoli, `backend_configs`, dati con prefisso `E2E__`) applicato una volta dopo le migrazioni, all'avvio dello stack in CI. È *read-mostly*.
+1. **Seed stabile** (utenti, ruoli, dati con prefisso `E2E__`) applicato una volta dopo le migrazioni, all'avvio dello stack in CI. È *read-mostly*.
 2. **Dati per-test univoci** per tutto ciò che viene scritto (import, token): nessun test dipende dallo stato lasciato da un altro → parallelismo sicuro.
 3. **Esiti esterni deterministici** scelti via fixture Excel / seed con i marcatori `E2E__` (ADR-003-D), mai via flag nel codice di produzione.
 4. **Reset mirato** (`POST /api/_test/reset`, test-only) come escape hatch per i pochi blocchi che richiedono stato pulito; azzera `imports` e `user_tokens` lasciando intatto il seed.

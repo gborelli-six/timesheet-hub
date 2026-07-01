@@ -60,7 +60,6 @@ Questo ADR fissa le **decisioni architetturali** sul testing E2E (framework, aut
 
 **Seed deterministico** applicato dopo le migrazioni:
 - Utenti fissi per ruolo (`employee@`, `hr@`, `admin@sixfeetup.it`).
-- `backend_configs` per i quattro adapter, con `base_url` che punta allo **stub** (vedi ADR-003-D).
 - Progetti/task/token con prefisso riservato `E2E__` che pilotano gli scenari di esito (vedi ADR-003-D).
 
 **Isolamento tra test:** i dati di seed sono *read-mostly*. Ogni test che muta lo stato (un import, un token) crea **entità proprie e univoche** (nessun dato condiviso a scrittura). Per i blocchi che necessitano di stato pulito è disponibile `POST /api/_test/reset` (test-only, stesse guardie di B) che azzera `imports` e `user_tokens` lasciando intatto il seed.

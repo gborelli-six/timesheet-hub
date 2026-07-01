@@ -9,7 +9,8 @@ export enum WarningType {
 }
 
 export interface RowWarning {
-  rowIndex: number
+  rowIndex: number // numero di riga Excel reale (1-based), usato solo nei messaggi mostrati all'utente
+  entryIndex: number // indice 0-based nell'array entries; -1 per i warning globali (MISSING_PERIOD)
   type: WarningType
   message: string
 }
@@ -47,4 +48,12 @@ export const DEFAULT_COLUMN_MAPPING: ColumnMapping = {
   task: 'Task',
   hours: 'Ore',
   notes: 'Note',
+}
+
+export const WARNING_LABEL: Record<WarningType, string> = {
+  [WarningType.MISSING_HOURS]: 'Ore mancanti',
+  [WarningType.MISSING_PROJECT]: 'Progetto mancante',
+  [WarningType.MISSING_TASK]: 'Task mancante',
+  [WarningType.INVALID_DATE]: 'Data non valida',
+  [WarningType.MISSING_PERIOD]: 'Periodo non determinato',
 }

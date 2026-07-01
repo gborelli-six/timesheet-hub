@@ -1,0 +1,93 @@
+from app.adapters.base import (
+    AdapterAuthError,
+    AdapterConfig,
+    AdapterConnectionError,
+    ImportResult,
+    Project,
+    RowError,
+    ServiceType,
+    Task,
+    TimesheetAdapter,
+    TimesheetEntry,
+    ValidationResult,
+)
+from app.adapters.registry import AdapterRegistry, adapter_registry
+from app.core.config import settings
+
+_PROJECTS: list[Project] = [
+    Project(id="1", name="Progetto Alpha"),
+    Project(id="2", name="Progetto Beta"),
+]
+
+_TASKS: dict[str, list[Task]] = {
+    "1": [
+        Task(id="101", name="Task Frontend"),
+        Task(id="102", name="Task Backend"),
+    ],
+    "2": [
+        Task(id="201", name="Task Design"),
+    ],
+}
+
+
+class StubAdapter(TimesheetAdapter):
+    """Adapter deterministico per E2E. Attivo solo con E2E_TEST_MODE=true."""
+
+    def validate(self, config: AdapterConfig) -> ValidationResult:
+        marker = config.marker or ""
+        if "E2E__DOWN" in marker:
+            raise AdapterConnectionError("Stub: backend non raggiungibile")
+        if "E2E__EXPIRED" in marker:
+            raise AdapterAuthError("Stub: credenziali scadute")
+        return ValidationResult(ok=True)
+
+    def submit(
+        self, entries: list[TimesheetEntry], config: AdapterConfig
+    ) -> ImportResult:
+        marker = config.marker or ""
+        if "E2E__DOWN" in marker:
+            raise AdapterConnectionError("Stub: backend non raggiungibile")
+        if "E2E__FAIL" in marker:
+            errors = [
+                RowError(row=i, message="Stub: errore applicativo")
+                for i in range(len(entries))
+            ]
+            return ImportResult(
+                success_count=0, error_count=len(entries), errors=errors
+            )
+        return ImportResult(success_count=len(entries), error_count=0, errors=[])
+
+    def get_projects(
+        self, config: AdapterConfig, query: str | None = None
+    ) -> list[Project]:
+        marker = config.marker or ""
+        if "E2E__DOWN" in marker:
+            raise AdapterConnectionError("Stub: backend non raggiungibile")
+        if "E2E__EXPIRED" in marker:
+            raise AdapterAuthError("Stub: credenziali scadute")
+        projects = _PROJECTS
+        if query:
+            projects = [p for p in projects if query.lower() in p.name.lower()]
+        return projects
+
+    def get_tasks(
+        self, project_id: str, config: AdapterConfig, query: str | None = None
+    ) -> list[Task]:
+        marker = config.marker or ""
+        if "E2E__DOWN" in marker:
+            raise AdapterConnectionError("Stub: backend non raggiungibile")
+        if "E2E__EXPIRED" in marker:
+            raise AdapterAuthError("Stub: credenziali scadute")
+        tasks = list(_TASKS.get(project_id, []))
+        if query:
+            tasks = [t for t in tasks if query.lower() in t.name.lower()]
+        return tasks
+
+
+def _maybe_register(registry: AdapterRegistry = adapter_registry) -> None:
+    """Registra StubAdapter nel registry se E2E_TEST_MODE è attivo."""
+    if settings.e2e_test_mode:
+        registry.register(ServiceType.odoo, StubAdapter)
+
+
+_maybe_register()

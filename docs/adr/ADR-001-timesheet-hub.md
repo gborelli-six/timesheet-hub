@@ -62,7 +62,7 @@ Il sistema deve essere a **basso costo di manutenzione**, semplice da usare e fa
 
 **Database**
 
-Si utilizza **PostgreSQL** tramite il plugin Railway managed. La scelta di SQLite inizialmente prevista nell'ADR è stata superata in fase di provisioning: su Railway Pro il plugin Postgres non ha costi aggiuntivi significativi, gestisce backup automatici e non richiede la gestione di Railway Volumes per la persistenza del file. Le tabelle core sono: `users`, `user_tokens`, `imports`, `backend_configs`.
+Si utilizza **PostgreSQL** tramite il plugin Railway managed. La scelta di SQLite inizialmente prevista nell'ADR è stata superata in fase di provisioning: su Railway Pro il plugin Postgres non ha costi aggiuntivi significativi, gestisce backup automatici e non richiede la gestione di Railway Volumes per la persistenza del file. Le tabelle core sono: `users`, `user_tokens`, `imports`.
 
 **Infrastruttura**
 

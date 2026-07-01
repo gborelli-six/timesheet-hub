@@ -98,10 +98,6 @@ Gli schemi Pydantic devono modellare `secret` come campo **solo di input** (mai 
 - `TOKEN_ENCRYPT_KEY` è gestita come Secret Variable Railway per environment (`ADR-002-G`), mai nel repository.
 - **Trade-off** (già accettato in `ADR-001`): la chiave è condivisa a livello di sistema. Se compromessa, tutti i token utente sono a rischio. Accettabile per uno strumento interno; una chiave per-utente richiederebbe un key management sensibilmente più complesso senza benefici proporzionati al modello di minaccia.
 
-### ADR-005-E — Relazione con le credenziali di sistema (E7)
-
-Le credenziali **di sistema** configurate dall'admin (token/URL dei backend nella tabella `backend_configs`) sono fuori dallo scope di E5 — vivono in E7 — ma **riusano gli stessi helper** `encrypt_secret` / `decrypt_secret`. Il meccanismo crittografico non va duplicato: ciò che cambia è solo l'AAD (legato al record di `backend_configs` anziché a `user_tokens`).
-
 ---
 
 ## Conseguenze
@@ -111,7 +107,6 @@ Le credenziali **di sistema** configurate dall'admin (token/URL dei backend nell
 - L'`account_identifier` resta mostrabile e modificabile, migliorando la UX del profilo senza compromettere il segreto.
 - L'AAD lega ogni ciphertext al suo record: tampering e swap a livello DB falliscono in modo rilevabile.
 - `key_version` rende la rotazione della chiave un'operazione di manutenzione, non un evento distruttivo.
-- Lo stesso meccanismo è riutilizzabile per le credenziali di sistema (E7) senza duplicazione.
 
 **Trade-off accettati:**
 - Chiave master condivisa di sistema (vedi ADR-005-D): single point of failure crittografico, accettato per il modello di minaccia interno.

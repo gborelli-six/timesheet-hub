@@ -313,7 +313,7 @@ In E1 il Makefile chiama `npm test` nel container frontend, ma lo script `test` 
 make seed    # Seed deterministico per E2E (placeholder in E1)
 ```
 
-Il seed predispone utenti per ruolo, `backend_configs`, e marcatori `E2E__*` (ADR-003-D). In E1 il comando è un placeholder; verrà popolato quando gli oggetti seed saranno definiti (E3/E7).
+Il seed predispone utenti per ruolo e marcatori `E2E__*` (ADR-003-D). In E1 il comando è un placeholder; verrà popolato quando gli oggetti seed saranno definiti (E3/E7).
 
 ## 11. Troubleshooting
 

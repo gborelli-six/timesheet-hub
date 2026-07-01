@@ -1,6 +1,6 @@
 # Backlog Timesheet Hub
 
-> Aggiornato: 2026-06-30 — E1/E2/E3/E4/E5 completate; E6 dettagliata. **Riprioritizzazione employee-first** (roadmap v0.5): rilascio in ordine 🏁 Employee MVP → 🏁 Admin → 🏁 HR. Wizard e log spezzati in E8a/E9a (employee) ed E8b/E9b (HR); nuova epica E3bis (gestione ruoli); seed config Odoo in E7. **Nuovo requisito**: assegnazione **multi-connettore per riga** + suggerimenti da storico (spec [`007`](../specs/007-multi-connector-row-mapping.md)) — predisposto in E6 (modello dati), dettagliato in E8a; pannello per-utente delle mappature → nuova epica post-MVP **E12**.
+> Aggiornato: 2026-07-01 — E1/E2/E3/E4/E5/E6/E7 completate; E8a dettagliata (multi-connettore per riga). **Riprioritizzazione employee-first** (roadmap v0.5): rilascio in ordine 🏁 Employee MVP → 🏁 Admin → 🏁 HR. Wizard e log spezzati in E8a/E9a (employee) ed E8b/E9b (HR); nuova epica E3bis (gestione ruoli). **Nuovo requisito**: assegnazione **multi-connettore per riga** + suggerimenti da storico (spec [`007`](../specs/007-multi-connector-row-mapping.md)) — predisposto in E6 (modello dati), dettagliato in E8a; pannello per-utente delle mappature → nuova epica post-MVP **E12**.
 
 Il backlog è effimero: le storie completate vengono rimosse dopo il merge su `main` e l'aggiornamento della documentazione permanente (ADR, spec, guide). I dati persistenti vivono in ADR/spec/test/codice, non qui.
 
@@ -18,8 +18,8 @@ Ordine di rilascio **employee-first** (vedi `docs/timesheet-hub-roadmap.md` v0.5
 | E4 | 7 | 0 | 0 | 0 | 7 ✅ | shell — completata |
 | E5 | 6 | 0 | 0 | 0 | 6 ✅ | profilo/token — completata |
 | E6 | 6 | 0 | 0 | 0 | 6 ✅ | parsing Excel — completata |
-| E7 | 0 | 0 | TBD | 0 | TBD | adapter Odoo + seed config — storie just-in-time |
-| E8a | 0 | 0 | 6+ | 0 | TBD | wizard employee — assegnazione multi-connettore dettagliata (`e8a-stories.md`); resto just-in-time |
+| E7 | 7 | 0 | 0 | 0 | 7 ✅ | adapter Odoo + seed config — completata |
+| E8a | 0 | 0 | 6+ | 0 | TBD | wizard employee — assegnazione multi-connettore dettagliata in [`e8a-stories.md`](e8a-stories.md); resto just-in-time |
 | E9a | 0 | 0 | TBD | 0 | TBD | log employee — storie just-in-time |
 | E3bis | 0 | 0 | TBD | 0 | TBD | gestione ruoli — storie just-in-time |
 | E10 | 0 | 0 | TBD | 0 | TBD | pannello Admin — storie just-in-time |
@@ -106,14 +106,39 @@ Storia → documentazione permanente:
 - STORY-E6-5: `e2e/fixtures/` (wrong-format.xlsx, anomalie.xlsx), `e2e/tests/excel-upload.spec.ts` (scenari #6/#7/#8)
 - STORY-E6-6: `docs/specs/006-excel-parsing.md`, `docs/guides/excel-upload.md`, `docs/specs/001-functional-spec.md` §Parsing Excel aggiornata
 
+## E7 — Completata
+
+Tutte le 7 storie di E7 sono Done e rimosse dal backlog.
+
+Storia → documentazione permanente:
+- STORY-E7-1: `backend/app/adapters/base.py` (interfaccia ABC `TimesheetAdapter`, tipi condivisi `Project`/`Task`/`AdapterConfig`/`ImportResult`/`ValidationResult`), `backend/app/adapters/registry.py` (`AdapterRegistry`), `backend/app/adapters/__init__.py`, `backend/tests/unit/test_adapter_registry.py`
+- STORY-E7-1: `backend/app/adapters/base.py` (interfaccia ABC `TimesheetAdapter`, tipi condivisi `Project`/`Task`/`AdapterConfig`/`ImportResult`/`ValidationResult`), `backend/app/adapters/registry.py` (`AdapterRegistry`), `backend/app/adapters/__init__.py`, `backend/tests/unit/test_adapter_registry.py`
+- STORY-E7-2: rimossa — `backend_configs` eliminata (i connettori sono esclusivamente per-utente via `user_tokens`)
+- STORY-E7-3: `backend/app/adapters/odoo.py` (`OdooAdapter.validate` + `submit`, eccezioni `AdapterAuthError`/`AdapterConnectionError`/`AdapterError`), `backend/tests/unit/test_odoo_adapter.py`
+- STORY-E7-4: `backend/app/adapters/odoo.py` (esteso con `get_projects` + `get_tasks` via `search_read` JSON-RPC)
+- STORY-E7-5: `backend/app/adapters/stub.py` (`StubAdapter` con marcatori `E2E__OK`/`E2E__FAIL`/`E2E__EXPIRED`/`E2E__DOWN` per tutti i metodi), `backend/tests/unit/test_stub_adapter.py`
+- STORY-E7-6: rimossa — seed config Odoo non necessario (architettura per-utente)
+- STORY-E7-7: `docs/adr/ADR-007-adapter-plugin-architecture.md`, `docs/guides/aggiungere-un-adapter.md`, `docs/specs/001-functional-spec.md` §"Backend supportati" aggiornata
+
+## E8a — Wizard import Employee
+
+Storie in [`e8a-stories.md`](e8a-stories.md). Le storie della feature multi-connettore per riga sono dettagliate; le restanti storie del wizard (orchestrazione step, tabella `imports`, schermata risultato) si dettagliano just-in-time.
+
+- STORY-E8a-1 ⬜ Tabella `connector_row_mappings` + migrazione Alembic
+- STORY-E8a-2 ⬜ Endpoint autocomplete progetti/task (`GET /api/adapters/{label}/projects` + `.../tasks`)
+- STORY-E8a-3 ⬜ Endpoint suggerimenti (`POST /api/me/mapping-suggestions`) + upsert mappature alla submit
+- STORY-E8a-4 ⬜ Modal assegnazione connettori per riga (multi-connettore + autocomplete live MUI)
+- STORY-E8a-5 ⬜ Integrazione suggerimenti pre-popolati + chip "Suggerito" nella PreviewTable
+- STORY-E8a-6 ⬜ E2E: la seconda importazione suggerisce le associazioni
+
 ## Prossima epica da implementare
-**E7** (adapter Odoo + seed config) — E6 completata. Dipende da E5 (✅), nessun blocco.
+**E8a** (wizard import Employee) — E7 completata. Dipende da E5 (✅), E6 (✅), E7 (✅), nessun blocco.
 
 ## Roadmap epiche successive (storie da scrivere just-in-time)
-Le epiche E7, E9a, E3bis, E10, E8b, E9b non hanno ancora file storie: si dettagliano al momento dell'inserimento in sprint, nell'ordine di rilascio sopra. **E8a** ha già le storie della feature multi-connettore in [`e8a-stories.md`](e8a-stories.md); le restanti storie del wizard si dettagliano just-in-time.
+Le epiche E9a, E3bis, E10, E8b, E9b non hanno ancora file storie: si dettagliano al momento dell'inserimento in sprint, nell'ordine di rilascio sopra. **E8a** ha le storie della feature multi-connettore in [`e8a-stories.md`](e8a-stories.md); le restanti storie del wizard si dettagliano just-in-time.
 
-- **Numerazione storie**: gli `STORY-NNN` sono globali e progressivi. E4 termina a **STORY-030**; E5/E6 hanno ID provvisori (`STORY-E5-N`/`STORY-E6-N`) da fissare in sequenza al commit in sprint. Le epiche successive riprendono da lì.
-- **Fase Employee** (🏁 MVP): E7 (adapter Odoo + seed config Odoo, espone progetti/task per autocomplete) · E8a (wizard self-import + assegnazione multi-connettore per riga con suggerimenti) · E9a (log propri).
+- **Numerazione storie**: gli `STORY-NNN` sono globali e progressivi. E4 termina a **STORY-030**; E5/E6/E7 hanno ID provvisori (`STORY-E5-N`/`STORY-E6-N`/`STORY-E7-N`) da fissare in sequenza al commit in sprint. Le epiche successive riprendono da lì.
+- **Fase Employee** (🏁 MVP): E8a (wizard self-import + assegnazione multi-connettore per riga con suggerimenti) · E9a (log propri).
 - **Fase Admin** (🏁): E3bis (gestione ruoli, backend identità) · E10 (pannello Admin UI: utenti/ruoli, CRUD backend, mapping Excel).
 - **Fase HR** (🏁): E8b (Step 0 selezione dipendente + `POST /imports?for=`) · E9b (vista di tutti i log + filtri avanzati).
 - **Post-v1**: E11 (adapter Jira/Linear/Asana) · E12 (pannello per-utente per modificare le mappature riga↔connettore preimpostate).

@@ -39,3 +39,5 @@ if settings.e2e_test_mode:
     from app.routers import e2e_test_router
 
     app.include_router(e2e_test_router.router, prefix="/api")
+
+    from app.adapters import stub  # noqa: F401 — auto-registra StubAdapter nel registry

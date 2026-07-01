@@ -60,6 +60,7 @@ export function normalize(
   if (!allKeys.has(mapping.hours)) {
     warnings.push({
       rowIndex: -1,
+      entryIndex: -1,
       type: WarningType.MISSING_PERIOD,
       message: `Colonna "${mapping.hours}" non trovata nel file`,
     })
@@ -95,6 +96,7 @@ export function normalize(
     if (!project) {
       warnings.push({
         rowIndex,
+        entryIndex: idx,
         type: WarningType.MISSING_PROJECT,
         message: `Riga ${rowIndex}: colonna "${mapping.project}" mancante o vuota`,
       })
@@ -103,6 +105,7 @@ export function normalize(
     if (!task) {
       warnings.push({
         rowIndex,
+        entryIndex: idx,
         type: WarningType.MISSING_TASK,
         message: `Riga ${rowIndex}: colonna "${mapping.task}" mancante o vuota`,
       })
@@ -112,6 +115,7 @@ export function normalize(
     if (isNaN(parsedHours)) {
       warnings.push({
         rowIndex,
+        entryIndex: idx,
         type: WarningType.MISSING_HOURS,
         message: `Riga ${rowIndex}: valore "${mapping.hours}" assente o non numerico`,
       })
@@ -123,6 +127,7 @@ export function normalize(
     if (dateInvalid) {
       warnings.push({
         rowIndex,
+        entryIndex: idx,
         type: WarningType.INVALID_DATE,
         message: `Riga ${rowIndex}: data non riconosciuta (usare YYYY-MM-DD o DD/MM/YYYY)`,
       })

@@ -92,6 +92,9 @@ describe('normalize', () => {
 
     const projectWarnings = warnings.filter((w) => w.type === WarningType.MISSING_PROJECT)
     expect(projectWarnings).toHaveLength(1)
+    // rowIndex punta alla riga Excel (4) per il messaggio; entryIndex resta l'indice
+    // 0-based nell'array entries (la 2ª riga dati), usato per l'associazione in preview.
     expect(projectWarnings[0].rowIndex).toBe(4)
+    expect(projectWarnings[0].entryIndex).toBe(1)
   })
 })

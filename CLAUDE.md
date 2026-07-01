@@ -207,7 +207,7 @@ Ordine di rilascio **employee-first** (roadmap v0.5): 🏁 Employee MVP → 🏁
 | E4 | ⬜ Todo | 7 | Design token MUI v7, Mantis shell (Header, SideNav, routing per-ruolo) | — |
 | E5 | ⬜ Todo | 6 | Profilo & token utente, AES-256-GCM, tabella `user_tokens`, API write-only | E3, E4 |
 | E6 | ⬜ Todo | 6 | Upload Excel, SheetJS parsing, `TimesheetEntry[]` (con `connectorAssignments`), Normalizer | E4 |
-| E7 | ⬜ Todo | TBD | Architettura plug-in adapter + adapter Odoo (JSON-RPC, `getProjects`/`getTasks`) + **seed config Odoo di default** | E5 |
+| E7 | ⬜ Todo | TBD | Architettura plug-in adapter + adapter Odoo (JSON-RPC, `getProjects`/`getTasks`); connettori per-utente via `user_tokens` | E5 |
 | E8a | ⬜ Todo | 6+ | Wizard importazione **Employee** (self-import, step 1–4, no Step 0) + **assegnazione multi-connettore per riga** con suggerimenti (`connector_row_mappings`) | E5, E6, E7 |
 | E9a | ⬜ Todo | TBD | Log importazioni **Employee** (solo propri log + dettaglio) | E8a |
 | — | 🏁 | — | **Milestone: Employee MVP** | — |

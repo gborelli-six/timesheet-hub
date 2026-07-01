@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { vi, describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import PreviewTable from './PreviewTable'
 import { WarningType } from '../../lib/timesheet/types'
 import type { TimesheetEntry, RowWarning } from '../../lib/timesheet/types'
@@ -17,22 +17,20 @@ function makeEntry(overrides: Partial<TimesheetEntry> = {}): TimesheetEntry {
   }
 }
 
-function makeWarning(rowIndex: number, type: WarningType = WarningType.MISSING_HOURS): RowWarning {
-  return { rowIndex, type, message: `Warning riga ${rowIndex}` }
+function makeWarning(
+  entryIndex: number,
+  type: WarningType = WarningType.MISSING_HOURS,
+): RowWarning {
+  // rowIndex simula la riga Excel (header a riga 1, prima riga dati a riga 2);
+  // l'associazione entry↔warning avviene tramite entryIndex.
+  const rowIndex = entryIndex + 2
+  return { rowIndex, entryIndex, type, message: `Warning riga ${rowIndex}` }
 }
 
 describe('PreviewTable', () => {
-  let onBack: ReturnType<typeof vi.fn>
-  let onNext: ReturnType<typeof vi.fn>
-
-  beforeEach(() => {
-    onBack = vi.fn()
-    onNext = vi.fn()
-  })
-
   it('rendering con 3 entry valide: nessun alert warning, nessuna riga evidenziata', () => {
     const entries = [makeEntry(), makeEntry(), makeEntry()]
-    render(<PreviewTable entries={entries} warnings={[]} onBack={onBack} onNext={onNext} />)
+    render(<PreviewTable entries={entries} warnings={[]} />)
 
     expect(screen.queryByTestId('preview-warning-alert')).not.toBeInTheDocument()
     expect(screen.queryAllByTestId('preview-row-warning')).toHaveLength(0)
@@ -41,10 +39,10 @@ describe('PreviewTable', () => {
   it('rendering con 1 entry valida + 2 con warning: alert corretto, 2 righe evidenziate', () => {
     const entries = [makeEntry(), makeEntry(), makeEntry()]
     const warnings = [
-      makeWarning(2, WarningType.MISSING_PROJECT),
-      makeWarning(3, WarningType.MISSING_HOURS),
+      makeWarning(0, WarningType.MISSING_PROJECT),
+      makeWarning(1, WarningType.MISSING_HOURS),
     ]
-    render(<PreviewTable entries={entries} warnings={warnings} onBack={onBack} onNext={onNext} />)
+    render(<PreviewTable entries={entries} warnings={warnings} />)
 
     const alert = screen.getByTestId('preview-warning-alert')
     expect(alert).toBeInTheDocument()
@@ -54,20 +52,27 @@ describe('PreviewTable', () => {
     expect(screen.getAllByTestId('preview-row-warning')).toHaveLength(2)
   })
 
-  it('click "Indietro" chiama onBack', () => {
-    render(<PreviewTable entries={[makeEntry()]} warnings={[]} onBack={onBack} onNext={onNext} />)
-    fireEvent.click(screen.getByTestId('preview-btn-back'))
-    expect(onBack).toHaveBeenCalledTimes(1)
+  it('chip warning mostra etichetta tipizzata per warning singolo', () => {
+    const entries = [makeEntry()]
+    const warnings = [makeWarning(0, WarningType.MISSING_PROJECT)]
+    render(<PreviewTable entries={entries} warnings={warnings} />)
+
+    expect(screen.getByTestId('preview-warning-chip')).toHaveTextContent('Progetto mancante')
   })
 
-  it('click "Avanti" con warning presenti chiama onNext (non bloccato)', () => {
-    const entries = [makeEntry(), makeEntry()]
-    const warnings = [makeWarning(1), makeWarning(2)]
-    render(<PreviewTable entries={entries} warnings={warnings} onBack={onBack} onNext={onNext} />)
+  it('chip warning mostra conteggio per warning multipli sulla stessa riga', () => {
+    const entries = [makeEntry()]
+    const warnings = [
+      makeWarning(0, WarningType.MISSING_PROJECT),
+      makeWarning(0, WarningType.MISSING_HOURS),
+    ]
+    render(<PreviewTable entries={entries} warnings={warnings} />)
 
-    const nextBtn = screen.getByTestId('preview-btn-next')
-    expect(nextBtn).not.toBeDisabled()
-    fireEvent.click(nextBtn)
-    expect(onNext).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('preview-warning-chip')).toHaveTextContent('2 warning')
+  })
+
+  it('righe senza warning mostrano badge OK', () => {
+    render(<PreviewTable entries={[makeEntry()]} warnings={[]} />)
+    expect(screen.getByText('OK')).toBeInTheDocument()
   })
 })

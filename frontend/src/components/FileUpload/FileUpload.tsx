@@ -2,15 +2,23 @@ import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import ExcelJS from 'exceljs'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import Typography from '@mui/material/Typography'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
-import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import TaskOutlinedIcon from '@mui/icons-material/TaskOutlined'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 
 interface FileUploadProps {
-  onParsed: (rows: Record<string, unknown>[], file: File, rowNumbers: number[]) => void
+  onParsed: (
+    rows: Record<string, unknown>[],
+    file: File,
+    rowNumbers: number[],
+    rowCount: number,
+  ) => void
   onError?: (message: string) => void
 }
 
@@ -28,6 +36,7 @@ export default function FileUpload({ onParsed, onError }: FileUploadProps) {
   const [state, setState] = useState<UploadState>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [rowCount, setRowCount] = useState(0)
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -41,6 +50,7 @@ export default function FileUpload({ onParsed, onError }: FileUploadProps) {
     setState('idle')
     setErrorMessage(null)
     setSelectedFile(null)
+    setRowCount(0)
     setDragging(false)
     if (inputRef.current) inputRef.current.value = ''
   }
@@ -57,6 +67,7 @@ export default function FileUpload({ onParsed, onError }: FileUploadProps) {
     }
 
     setState('loading')
+    setErrorMessage(null)
     try {
       const buffer = await file.arrayBuffer()
       const workbook = new ExcelJS.Workbook()
@@ -70,12 +81,9 @@ export default function FileUpload({ onParsed, onError }: FileUploadProps) {
 
       const headers: string[] = []
       const rows: Record<string, unknown>[] = []
-      // Numero di riga Excel reale (1-based, intestazione inclusa) per ogni riga in `rows`,
-      // così il normalizer può riferire i warning alla riga visibile dall'utente.
       const rowNumbers: number[] = []
 
       worksheet.eachRow((row, rowNumber) => {
-        // row.values è 1-indexed: indice 0 è sempre null
         const values = row.values as unknown[]
         if (rowNumber === 1) {
           for (let i = 1; i < values.length; i++) {
@@ -87,7 +95,6 @@ export default function FileUpload({ onParsed, onError }: FileUploadProps) {
           headers.forEach((h, i) => {
             obj[h] = values[i + 1]
           })
-          // Filtra righe completamente vuote
           if (
             Object.values(obj).some((v) => v !== undefined && v !== null && String(v).trim() !== '')
           ) {
@@ -103,8 +110,9 @@ export default function FileUpload({ onParsed, onError }: FileUploadProps) {
       }
 
       setSelectedFile(file)
+      setRowCount(rows.length)
       setState('success')
-      onParsed(rows, file, rowNumbers)
+      onParsed(rows, file, rowNumbers, rows.length)
     } catch {
       setError('Errore durante la lettura del file')
     }
@@ -132,138 +140,173 @@ export default function FileUpload({ onParsed, onError }: FileUploadProps) {
     if (file) void handleFile(file)
   }
 
-  const baseBoxSx = {
-    border: '2px dashed',
-    borderRadius: 2,
-    p: 4,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 1.5,
-    minHeight: 200,
-    cursor: 'pointer',
-    transition: 'border-color 0.15s, background-color 0.15s',
-  }
-
   if (state === 'loading') {
-    return (
-      <Box sx={{ ...baseBoxSx, cursor: 'default', borderColor: 'divider', bgcolor: 'grey.50' }}>
-        <CircularProgress size={40} />
-        <Typography variant="body2" color="text.secondary">
-          Lettura del file in corso…
-        </Typography>
-      </Box>
-    )
-  }
-
-  if (state === 'error') {
     return (
       <Box
         sx={{
-          ...baseBoxSx,
-          cursor: 'default',
-          borderColor: 'error.main',
-          bgcolor: 'error.lighter',
+          border: '2px solid',
+          borderColor: 'primary.200',
+          borderRadius: 2,
+          p: 4,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 1.5,
+          minHeight: 200,
+          bgcolor: 'primary.50',
         }}
       >
-        <WarningAmberOutlinedIcon sx={{ fontSize: 40, color: 'error.main' }} />
-        <Typography variant="body2" color="error.main" textAlign="center">
-          {errorMessage}
+        <CircularProgress size={40} />
+        <Typography variant="body2" fontWeight={500}>
+          Lettura del file…
         </Typography>
-        <Button size="small" variant="outlined" color="error" onClick={reset}>
-          Riprova
-        </Button>
+        <Typography variant="caption" color="text.secondary">
+          Parsing del primo foglio con SheetJS
+        </Typography>
       </Box>
     )
   }
 
   if (state === 'success' && selectedFile) {
     return (
-      <Box
-        sx={{
-          ...baseBoxSx,
-          cursor: 'default',
-          borderColor: 'success.main',
-          bgcolor: 'success.lighter',
-        }}
-      >
-        <InsertDriveFileOutlinedIcon sx={{ fontSize: 40, color: 'success.main' }} />
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography variant="body2" fontWeight={600}>
-            {selectedFile.name}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {formatSize(selectedFile.size)}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            p: '14px 16px',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+          }}
+        >
+          <TaskOutlinedIcon sx={{ fontSize: 28, color: 'success.main', flexShrink: 0 }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="body2" fontWeight={600} noWrap>
+              {selectedFile.name}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {formatSize(selectedFile.size)} · {rowCount} righe · 1° foglio
+            </Typography>
+          </Box>
+          <Chip
+            label="Formato valido"
+            color="success"
+            size="small"
+            icon={<CheckCircleOutlineIcon />}
+            sx={{ flexShrink: 0 }}
+          />
+          <Button
+            size="small"
+            variant="text"
+            color="inherit"
+            startIcon={<DeleteOutlinedIcon />}
+            onClick={reset}
+            data-testid="file-upload-remove"
+            sx={{ flexShrink: 0, color: 'text.secondary' }}
+          >
+            Rimuovi
+          </Button>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, color: 'text.secondary' }}>
+          <InfoOutlinedIcon sx={{ fontSize: 13 }} />
+          <Typography variant="caption">
+            Parsing eseguito in locale (SheetJS) — il file non è stato caricato sul server.
           </Typography>
         </Box>
-        <Button
-          size="small"
-          variant="outlined"
-          color="inherit"
-          startIcon={<DeleteOutlinedIcon />}
-          onClick={reset}
-          data-testid="file-upload-remove"
-        >
-          Rimuovi
-        </Button>
       </Box>
     )
   }
 
-  // idle
+  const isError = state === 'error'
+
   return (
-    <Box
-      sx={{
-        ...baseBoxSx,
-        borderColor: dragging ? 'primary.main' : 'divider',
-        bgcolor: dragging ? 'primary.lighter' : 'grey.50',
-        '&:hover': { borderColor: 'primary.main' },
-      }}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      onClick={() => inputRef.current?.click()}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
-      data-testid="file-upload-dropzone"
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".xlsx"
-        style={{ display: 'none' }}
-        onChange={onInputChange}
-        data-testid="file-upload-input"
-      />
-      <UploadFileOutlinedIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-      <Box sx={{ textAlign: 'center' }}>
-        <Typography variant="body2">
-          Trascina il file qui{' '}
-          <Typography
-            component="span"
-            variant="body2"
-            color="primary.main"
-            sx={{ fontWeight: 600 }}
-          >
-            o sfoglia
-          </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      <Box
+        sx={{
+          border: '2px dashed',
+          borderColor: isError ? 'error.main' : dragging ? 'primary.main' : 'divider',
+          borderRadius: 2,
+          p: 4,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 1,
+          minHeight: 200,
+          cursor: 'pointer',
+          transition: 'border-color 0.15s, background-color 0.15s',
+          bgcolor: isError ? 'error.lighter' : dragging ? 'primary.lighter' : 'grey.50',
+          '&:hover': { borderColor: isError ? 'error.main' : 'primary.main' },
+        }}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onClick={() => inputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
+        data-testid="file-upload-dropzone"
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".xlsx"
+          style={{ display: 'none' }}
+          onChange={onInputChange}
+          data-testid="file-upload-input"
+        />
+        <UploadFileOutlinedIcon
+          sx={{ fontSize: 40, color: isError ? 'error.main' : 'primary.main' }}
+        />
+        <Typography variant="body2" fontWeight={500}>
+          Trascina qui il file Excel del timesheet
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          Formato supportato: .xlsx · Max 5 MB
+          oppure
+        </Typography>
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={(e) => {
+            e.stopPropagation()
+            inputRef.current?.click()
+          }}
+        >
+          Sfoglia file
+        </Button>
+        <Typography
+          variant="caption"
+          sx={{ fontFamily: 'monospace', color: 'text.disabled', mt: 0.5 }}
+        >
+          .xlsx · max 5 MB · viene letto il primo foglio
         </Typography>
       </Box>
-      <Button
-        size="small"
-        variant="outlined"
-        onClick={(e) => {
-          e.stopPropagation()
-          inputRef.current?.click()
-        }}
-      >
-        Sfoglia
-      </Button>
+
+      {isError && errorMessage && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            p: '10px 14px',
+            borderRadius: 1.5,
+            bgcolor: 'error.lighter',
+            border: '1px solid',
+            borderColor: 'error.light',
+            color: 'error.dark',
+          }}
+          data-testid="file-upload-error"
+        >
+          <WarningAmberOutlinedIcon sx={{ fontSize: 16, flexShrink: 0 }} />
+          <Typography variant="body2" fontWeight={500}>
+            {errorMessage}
+          </Typography>
+        </Box>
+      )}
     </Box>
   )
 }

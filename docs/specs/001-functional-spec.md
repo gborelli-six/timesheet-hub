@@ -132,6 +132,8 @@ L'applicazione supporta l'importazione su più sistemi, configurabili indipenden
 
 Ogni backend è **opzionale e indipendente**: l'assegnazione avviene a livello di **singola riga** del timesheet — la stessa riga può essere inviata a più connettori contemporaneamente, ciascuno con il proprio progetto e task remoto. L'aggiunta di nuovi backend non richiede modifiche ai componenti esistenti.
 
+I backend sono integrati tramite un'**architettura plug-in** basata sull'interfaccia astratta `TimesheetAdapter` e un `AdapterRegistry` globale. Ogni adapter si auto-registra all'import del proprio modulo; il core applicativo non conosce i dettagli dei singoli backend. Per le decisioni architetturali di dettaglio vedere [ADR-007](../adr/ADR-007-adapter-plugin-architecture.md); per aggiungere un nuovo backend seguire la guida [`docs/guides/aggiungere-un-adapter.md`](../guides/aggiungere-un-adapter.md).
+
 ---
 
 ## Pannello di controllo (Admin)

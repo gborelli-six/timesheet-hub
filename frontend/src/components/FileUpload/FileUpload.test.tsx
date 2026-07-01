@@ -71,9 +71,15 @@ describe('FileUpload', () => {
       expect(onParsed).toHaveBeenCalledTimes(1)
     })
 
-    const [rows] = onParsed.mock.calls[0] as [Record<string, unknown>[], File]
+    const [rows, , , rowCount] = onParsed.mock.calls[0] as [
+      Record<string, unknown>[],
+      File,
+      number[],
+      number,
+    ]
     expect(Array.isArray(rows)).toBe(true)
     expect(rows.length).toBeGreaterThan(0)
     expect(rows[0]).toHaveProperty('Progetto', 'Proj A')
+    expect(typeof rowCount).toBe('number')
   })
 })
