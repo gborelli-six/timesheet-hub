@@ -59,6 +59,12 @@ export async function generateE2EFixtures(): Promise<void> {
   await writeWrongColumnFixture("wrong-format.xlsx");
   await writeAnomalieFixture("anomalie.xlsx");
 
+  // E8a-6: fixture per il test dei suggerimenti da storico
+  await writeFixture("suggestions.xlsx", [
+    { date: "2026-03-01", project: "Alpha Project", task: "Development", hours: 8, notes: "" },
+    { date: "2026-03-02", project: "Beta Project", task: "Review", hours: 4, notes: "" },
+  ]);
+
   console.log("[fixtures/generate] Fixture Excel generate in", XLSX_DIR);
 }
 

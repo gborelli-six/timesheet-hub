@@ -9,6 +9,9 @@ export interface ServiceMeta {
   accountPlaceholder: string
   hasBaseUrl: boolean
   baseUrlPlaceholder?: string
+  hasDbName?: boolean
+  dbNameLabel?: string
+  dbNamePlaceholder?: string
   secretLabel: string
 }
 
@@ -33,6 +36,9 @@ export const SERVICE_META: Record<ServiceType, ServiceMeta> = {
     accountPlaceholder: 'mario.rossi',
     hasBaseUrl: true,
     baseUrlPlaceholder: 'https://azienda.odoo.com',
+    hasDbName: true,
+    dbNameLabel: 'Database Odoo',
+    dbNamePlaceholder: 'nome_database',
     secretLabel: 'API Key',
   },
   linear: {

@@ -44,6 +44,7 @@ class ConnectorUpsertRequest(BaseModel):
     account_identifier: str | None = None
     base_url: str | None = None
     secret: str | None = Field(default=None, max_length=4096)
+    db_name: str | None = None
 
 
 class ConnectorOut(BaseModel):
@@ -51,6 +52,7 @@ class ConnectorOut(BaseModel):
     service: str
     base_url: str | None
     account_identifier: str | None
+    db_name: str | None
     configured: bool
     needs_reauth: bool
     updated_at: datetime
@@ -71,6 +73,7 @@ def list_connectors(
             service=t.service,
             base_url=t.base_url,
             account_identifier=t.account_identifier,
+            db_name=t.db_name,
             configured=True,
             needs_reauth=t.needs_reauth,
             updated_at=t.updated_at,
@@ -117,6 +120,7 @@ def upsert_connector(
             if "account_identifier" in body.model_fields_set
             else None,
             base_url=body.base_url if "base_url" in body.model_fields_set else None,
+            db_name=body.db_name if "db_name" in body.model_fields_set else None,
             secret_enc=secret_enc,
             nonce=nonce,
             key_version=key_version,
@@ -136,6 +140,8 @@ def upsert_connector(
             token.account_identifier = body.account_identifier
         if "base_url" in body.model_fields_set:
             token.base_url = body.base_url
+        if "db_name" in body.model_fields_set:
+            token.db_name = body.db_name
 
     db.commit()
     db.refresh(token)
@@ -144,6 +150,7 @@ def upsert_connector(
         service=token.service,
         base_url=token.base_url,
         account_identifier=token.account_identifier,
+        db_name=token.db_name,
         configured=True,
         needs_reauth=token.needs_reauth,
         updated_at=token.updated_at,

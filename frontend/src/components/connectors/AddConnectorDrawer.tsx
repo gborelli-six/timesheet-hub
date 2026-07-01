@@ -39,6 +39,7 @@ export function AddConnectorDrawer({
   const [label, setLabel] = useState('')
   const [accountIdentifier, setAccountIdentifier] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
+  const [dbName, setDbName] = useState('')
   const [secret, setSecret] = useState('')
 
   const meta = SERVICE_META[service]
@@ -48,6 +49,7 @@ export function AddConnectorDrawer({
     // La label è scelta dall'utente (nessun default): la preserviamo al cambio servizio.
     setAccountIdentifier('')
     setBaseUrl('')
+    setDbName('')
     setSecret('')
   }
 
@@ -66,6 +68,7 @@ export function AddConnectorDrawer({
           service,
           account_identifier: accountIdentifier.trim() || null,
           base_url: meta.hasBaseUrl ? baseUrl.trim() || null : null,
+          db_name: meta.hasDbName ? dbName.trim() || null : null,
           secret,
         },
       },
@@ -77,6 +80,7 @@ export function AddConnectorDrawer({
           setLabel('')
           setAccountIdentifier('')
           setBaseUrl('')
+          setDbName('')
           setSecret('')
         },
       },
@@ -264,6 +268,19 @@ export function AddConnectorDrawer({
             onChange={(e) => setBaseUrl(e.target.value)}
             placeholder={meta.baseUrlPlaceholder}
             data-testid={`${testId}-base-url`}
+          />
+        )}
+
+        {/* db_name (condizionale) */}
+        {meta.hasDbName && (
+          <TextField
+            fullWidth
+            size="small"
+            label={meta.dbNameLabel}
+            value={dbName}
+            onChange={(e) => setDbName(e.target.value)}
+            placeholder={meta.dbNamePlaceholder}
+            data-testid={`${testId}-db-name`}
           />
         )}
 

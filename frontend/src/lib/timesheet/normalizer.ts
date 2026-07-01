@@ -55,9 +55,25 @@ export function normalize(
   const warnings: RowWarning[] = []
   const entries: TimesheetEntry[] = []
 
+  // Normalize row keys to lowercase for case-insensitive column matching.
+  const normalizedRows = rows.map((row) => {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(row)) {
+      out[k.toLowerCase().trim()] = v
+    }
+    return out
+  })
+  const m = {
+    date: mapping.date.toLowerCase().trim(),
+    project: mapping.project.toLowerCase().trim(),
+    task: mapping.task.toLowerCase().trim(),
+    hours: mapping.hours.toLowerCase().trim(),
+    notes: mapping.notes.toLowerCase().trim(),
+  }
+
   // MISSING_PERIOD: hours column absent from every row header.
-  const allKeys = new Set(rows.flatMap((r) => Object.keys(r)))
-  if (!allKeys.has(mapping.hours)) {
+  const allKeys = new Set(normalizedRows.flatMap((r) => Object.keys(r)))
+  if (!allKeys.has(m.hours)) {
     warnings.push({
       rowIndex: -1,
       entryIndex: -1,
@@ -66,28 +82,28 @@ export function normalize(
     })
   }
 
-  rows.forEach((row, idx) => {
+  normalizedRows.forEach((row, idx) => {
     // rowIndex = numero di riga Excel reale (intestazione inclusa) fornito da FileUpload,
     // così i messaggi puntano alla riga visibile dall'utente nel foglio. In assenza dei
     // numeri reali si ricade sull'indice 1-based delle righe dati.
     const rowIndex = rowNumbers?.[idx] ?? idx + 1
 
-    const rawProject = row[mapping.project]
+    const rawProject = row[m.project]
     const project =
       rawProject !== undefined && rawProject !== null && String(rawProject).trim() !== ''
         ? String(rawProject).trim()
         : ''
 
-    const rawTask = row[mapping.task]
+    const rawTask = row[m.task]
     const task =
       rawTask !== undefined && rawTask !== null && String(rawTask).trim() !== ''
         ? String(rawTask).trim()
         : ''
 
-    const rawHours = row[mapping.hours]
+    const rawHours = row[m.hours]
     const parsedHours = parseHoursValue(rawHours)
 
-    const rawNotes = row[mapping.notes]
+    const rawNotes = row[m.notes]
     const notes =
       rawNotes !== undefined && rawNotes !== null && String(rawNotes).trim() !== ''
         ? String(rawNotes).trim()
@@ -123,7 +139,7 @@ export function normalize(
       hours = parsedHours
     }
 
-    const { value: date, invalid: dateInvalid } = parseDate(row[mapping.date])
+    const { value: date, invalid: dateInvalid } = parseDate(row[m.date])
     if (dateInvalid) {
       warnings.push({
         rowIndex,

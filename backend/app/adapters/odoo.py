@@ -49,21 +49,13 @@ class OdooAdapter(TimesheetAdapter):
         uid = self._authenticate(config)
         db = config.params.get("db", "")
         password = config.params.get("password", "")
-        connector_id = config.params.get("connector_id", "")
         obj = xmlrpc.client.ServerProxy(f"{config.base_url}/xmlrpc/2/object")
         result = ImportResult(success_count=0, error_count=0)
 
         for i, entry in enumerate(entries):
-            assignment = next(
-                (
-                    a
-                    for a in entry.connector_assignments
-                    if a.connector_id == connector_id
-                ),
-                None,
-            )
-            if assignment is None:
+            if not entry.connector_assignments:
                 continue
+            assignment = entry.connector_assignments[0]
 
             record = {
                 "date": entry.date,

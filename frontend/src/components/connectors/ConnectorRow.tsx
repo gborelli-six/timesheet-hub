@@ -43,6 +43,7 @@ export function ConnectorRow({
 
   const [accountIdentifier, setAccountIdentifier] = useState(conn.account_identifier ?? '')
   const [baseUrl, setBaseUrl] = useState(conn.base_url ?? '')
+  const [dbName, setDbName] = useState(conn.db_name ?? '')
   const [secret, setSecret] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -51,18 +52,26 @@ export function ConnectorRow({
   useEffect(() => {
     setAccountIdentifier(conn.account_identifier ?? '')
     setBaseUrl(conn.base_url ?? '')
+    setDbName(conn.db_name ?? '')
     setSecret('')
     setSaveSuccess(false)
-  }, [conn.account_identifier, conn.base_url, conn.label])
+  }, [conn.account_identifier, conn.base_url, conn.db_name, conn.label])
 
   const handleSave = () => {
-    const body: { account_identifier?: string | null; base_url?: string | null; secret?: string } =
-      {}
+    const body: {
+      account_identifier?: string | null
+      base_url?: string | null
+      db_name?: string | null
+      secret?: string
+    } = {}
     if (accountIdentifier !== (conn.account_identifier ?? '')) {
       body.account_identifier = accountIdentifier || null
     }
     if (meta.hasBaseUrl && baseUrl !== (conn.base_url ?? '')) {
       body.base_url = baseUrl || null
+    }
+    if (meta.hasDbName && dbName !== (conn.db_name ?? '')) {
+      body.db_name = dbName || null
     }
     if (secret) body.secret = secret
 
@@ -238,6 +247,21 @@ export function ConnectorRow({
                   onChange={(e) => setBaseUrl(e.target.value)}
                   placeholder={meta.baseUrlPlaceholder}
                   data-testid={`${testId}-base-url`}
+                />
+              </Grid>
+            )}
+
+            {/* db_name (solo per i servizi che lo usano) */}
+            {meta.hasDbName && (
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={meta.dbNameLabel}
+                  value={dbName}
+                  onChange={(e) => setDbName(e.target.value)}
+                  placeholder={meta.dbNamePlaceholder}
+                  data-testid={`${testId}-db-name`}
                 />
               </Grid>
             )}

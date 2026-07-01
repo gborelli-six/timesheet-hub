@@ -4,7 +4,7 @@ import '@testing-library/jest-dom'
 import { describe, it, expect } from 'vitest'
 import PreviewTable from './PreviewTable'
 import { WarningType } from '../../lib/timesheet/types'
-import type { TimesheetEntry, RowWarning } from '../../lib/timesheet/types'
+import type { ConnectorAssignment, TimesheetEntry, RowWarning } from '../../lib/timesheet/types'
 
 function makeEntry(overrides: Partial<TimesheetEntry> = {}): TimesheetEntry {
   return {
@@ -74,5 +74,55 @@ describe('PreviewTable', () => {
   it('righe senza warning mostrano badge OK', () => {
     render(<PreviewTable entries={[makeEntry()]} warnings={[]} />)
     expect(screen.getByText('OK')).toBeInTheDocument()
+  })
+
+  it('icona sparkle visibile per assignment con suggested=true', () => {
+    const assignmentsByRow: Record<number, ConnectorAssignment[]> = {
+      0: [
+        {
+          connectorLabel: 'Jira principale',
+          service: 'jira',
+          remoteProjectId: 'proj-1',
+          remoteProjectName: 'Progetto Alpha',
+          remoteTaskId: 'task-1',
+          remoteTaskName: 'Task Uno',
+          suggested: true,
+        },
+      ],
+    }
+    render(
+      <PreviewTable
+        entries={[makeEntry()]}
+        warnings={[]}
+        assignmentsByRow={assignmentsByRow}
+        onAssign={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('suggested-icon-0-0')).toBeInTheDocument()
+  })
+
+  it('nessuna icona sparkle per assignment con suggested=false', () => {
+    const assignmentsByRow: Record<number, ConnectorAssignment[]> = {
+      0: [
+        {
+          connectorLabel: 'Jira principale',
+          service: 'jira',
+          remoteProjectId: 'proj-1',
+          remoteProjectName: 'Progetto Alpha',
+          remoteTaskId: 'task-1',
+          remoteTaskName: 'Task Uno',
+          suggested: false,
+        },
+      ],
+    }
+    render(
+      <PreviewTable
+        entries={[makeEntry()]}
+        warnings={[]}
+        assignmentsByRow={assignmentsByRow}
+        onAssign={() => {}}
+      />,
+    )
+    expect(screen.queryByTestId('suggested-icon-0-0')).not.toBeInTheDocument()
   })
 })
