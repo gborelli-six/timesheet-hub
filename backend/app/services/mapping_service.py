@@ -80,11 +80,20 @@ def upsert_row_mappings(
     """
     now = datetime.now(UTC)
 
+    # Deduplica: se la stessa (excel_project, excel_task, connector_label) compare
+    # più volte nell'input (righe Excel duplicate o multi-mapping stesso connettore),
+    # vince l'ultimo. Senza questo step il SELECT-before-INSERT non vede i record
+    # appena aggiunti alla sessione e il commit bulk viola il constraint unico.
+    deduped: dict[tuple[str, str, str], dict] = {}
     for a in assignments:
-        norm_proj = _normalize(a.get("excel_project", ""))
-        norm_task = _normalize(a.get("excel_task", ""))
-        label = a.get("connector_label", "")
+        key = (
+            _normalize(a.get("excel_project", "")),
+            _normalize(a.get("excel_task", "")),
+            a.get("connector_label", ""),
+        )
+        deduped[key] = a
 
+    for (norm_proj, norm_task, label), a in deduped.items():
         existing = (
             db.query(ConnectorRowMapping)
             .filter(
