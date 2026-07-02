@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Timesheet Hub API", version="0.1.0", lifespan=lifespan)
 
-app.include_router(health.router)
+app.include_router(health.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.api_router)
