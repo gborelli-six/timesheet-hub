@@ -56,6 +56,8 @@ class OdooAdapter(TimesheetAdapter):
             if not entry.connector_assignments:
                 continue
             assignment = entry.connector_assignments[0]
+            if assignment.connector_id != config.params.get("connector_id"):
+                continue
 
             record = {
                 "date": entry.date,

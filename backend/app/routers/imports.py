@@ -104,9 +104,13 @@ def submit_imports(
         token = _get_token_or_404(db, user_id, label)
         config = _build_adapter_config(token, user_id)
 
-        # 2b. Filtra le entries che hanno almeno un assignment per questo label
+        # 2b. Filtra le entries che hanno almeno un assignment per questo label.
+        #     original_rows mappa la posizione in `filtered` all'indice (1-based)
+        #     della entry nel foglio, così gli errori restituiti puntano alla riga
+        #     vista dall'utente e non alla posizione nel sottoinsieme filtrato.
         filtered: list[AdapterEntry] = []
-        for entry in entries:
+        original_rows: list[int] = []
+        for idx, entry in enumerate(entries):
             matching = [
                 a for a in entry.connector_assignments if a.connector_label == label
             ]
@@ -114,6 +118,7 @@ def submit_imports(
                 continue
             # Prendi solo il primo assignment per questo label (uno per label per entry)
             a = matching[0]
+            original_rows.append(idx + 1)
             filtered.append(
                 AdapterEntry(
                     date=entry.date,
@@ -142,7 +147,7 @@ def submit_imports(
                 success_count=import_result.success_count,
                 error_count=import_result.error_count,
                 errors=[
-                    RowErrorOut(row=e.row, message=e.message)
+                    RowErrorOut(row=original_rows[e.row], message=e.message)
                     for e in import_result.errors
                 ],
             )

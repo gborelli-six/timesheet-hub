@@ -43,6 +43,7 @@ interface AssignModalProps {
 interface AssignCardProps {
   assignment: ConnectorAssignment
   connectors: ConnectorOut[]
+  disabledLabels: Set<string>
   onChange: (next: ConnectorAssignment) => void
   onRemove: () => void
   'data-testid'?: string
@@ -51,6 +52,7 @@ interface AssignCardProps {
 function AssignCard({
   assignment,
   connectors,
+  disabledLabels,
   onChange,
   onRemove,
   'data-testid': testId,
@@ -155,13 +157,18 @@ function AssignCard({
           {connectors.map((c) => {
             const m = SERVICE_META[c.service]
             const isOn = c.label === assignment.connectorLabel
+            // Un altro card usa già questo connettore: non selezionabile qui.
+            const isDisabled = !isOn && disabledLabels.has(c.label)
             return (
               <Box
                 key={c.label}
                 component="button"
-                onClick={() => pickConnector(c.label)}
+                disabled={isDisabled}
+                onClick={() => {
+                  if (!isDisabled) pickConnector(c.label)
+                }}
                 data-testid={testId ? `${testId}-connector-${c.label}` : undefined}
-                title={c.label}
+                title={isDisabled ? `${c.label} — già assegnato a questa riga` : c.label}
                 sx={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -172,13 +179,14 @@ function AssignCard({
                   borderRadius: 1.25,
                   bgcolor: isOn ? 'background.paper' : 'transparent',
                   boxShadow: isOn ? '0 1px 2px rgba(0,0,0,.08)' : 'none',
-                  cursor: 'pointer',
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  opacity: isDisabled ? 0.4 : 1,
                   fontFamily: 'inherit',
                   fontSize: '0.75rem',
                   fontWeight: 600,
                   color: isOn ? 'text.primary' : 'text.secondary',
                   transition: 'all 140ms',
-                  '&:hover': { color: 'text.primary' },
+                  '&:hover': { color: isDisabled ? undefined : 'text.primary' },
                 }}
               >
                 <Box
@@ -409,9 +417,14 @@ export function AssignModal({
   const completeCount = list.filter((a) => a.remoteProjectId && a.remoteTaskId).length
   const canSave = list.length === 0 || list.every((a) => a.remoteProjectId && a.remoteTaskId)
 
+  // Un connettore può essere assegnato una sola volta per riga: il backend
+  // conserva solo il primo assignment per label, quindi eventuali duplicati
+  // verrebbero scartati silenziosamente.
+  const usedLabels = new Set(list.map((a) => a.connectorLabel))
+  const allConnectorsUsed = connectors.length > 0 && usedLabels.size >= connectors.length
+
   const addConnector = () => {
-    const usedLabels = new Set(list.map((a) => a.connectorLabel))
-    const next = connectors.find((c) => !usedLabels.has(c.label)) ?? connectors[0]
+    const next = connectors.find((c) => !usedLabels.has(c.label))
     if (!next) return
     setList((prev) => [
       ...prev,
@@ -611,6 +624,9 @@ export function AssignModal({
                 key={i}
                 assignment={a}
                 connectors={connectors}
+                disabledLabels={
+                  new Set(list.filter((_, j) => j !== i).map((other) => other.connectorLabel))
+                }
                 onChange={(next) => changeCard(i, next)}
                 onRemove={() => removeCard(i)}
                 data-testid={`${testId}-card-${i}`}
@@ -625,7 +641,7 @@ export function AssignModal({
           size="small"
           startIcon={<AddIcon />}
           onClick={addConnector}
-          disabled={list.length >= 4 || connectors.length === 0}
+          disabled={list.length >= 4 || connectors.length === 0 || allConnectorsUsed}
           data-testid={`${testId}-btn-add`}
           sx={{ alignSelf: 'flex-start' }}
         >

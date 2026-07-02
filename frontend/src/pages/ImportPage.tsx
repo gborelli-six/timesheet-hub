@@ -137,6 +137,24 @@ function StepBar({
   )
 }
 
+function extractSubmitError(err: unknown): string {
+  const fallback = 'Importazione non riuscita. Riprova o verifica i connettori nel Profilo.'
+  const raw = err instanceof Error ? err.message : ''
+  if (!raw) return fallback
+  try {
+    const detail = (JSON.parse(raw) as { detail?: unknown }).detail
+    if (typeof detail === 'string') return detail
+    if (detail && typeof detail === 'object' && 'message' in detail) {
+      const message = (detail as { message?: unknown }).message
+      if (typeof message === 'string') return message
+    }
+  } catch {
+    // corpo non-JSON: usa il testo grezzo se breve, altrimenti il fallback
+    if (raw.length <= 200) return raw
+  }
+  return fallback
+}
+
 function buildSuggestedAssignments(
   suggestionsByRow: SuggestedAssignmentResponse[][],
   currentEntries: TimesheetEntry[],
@@ -443,6 +461,7 @@ export default function ImportPage() {
   const [hasFile, setHasFile] = useState(false)
   const [assignments, setAssignments] = useState<Record<number, ConnectorAssignment[]>>({})
   const [modalRow, setModalRow] = useState<number | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const { data: connectors = [] } = useConnectors()
   const { mutate: fetchSuggestions, isPending: suggestionsLoading } = useMappingSuggestions()
@@ -508,10 +527,12 @@ export default function ImportPage() {
     setFileKey((k) => k + 1)
     setAssignments({})
     setModalRow(null)
+    setSubmitError(null)
   }
 
   function handleBackToPreview() {
     setStep('preview')
+    setSubmitError(null)
   }
 
   function handleSaveAssignments(idx: number, list: ConnectorAssignment[]) {
@@ -526,13 +547,17 @@ export default function ImportPage() {
   }
 
   function handleSubmit() {
+    setSubmitError(null)
     setPhase('submitting')
     submitImport(entries, {
       onSuccess: (results) => {
         setImportResults(results)
         setPhase('result')
       },
-      onError: () => setPhase('form'),
+      onError: (err) => {
+        setSubmitError(extractSubmitError(err))
+        setPhase('form')
+      },
     })
   }
 
@@ -548,6 +573,7 @@ export default function ImportPage() {
     setFileKey((k) => k + 1)
     setAssignments({})
     setModalRow(null)
+    setSubmitError(null)
   }
 
   const perRowWarnings = warnings.filter((w) => w.entryIndex >= 0)
@@ -851,7 +877,17 @@ export default function ImportPage() {
                   </Box>
                 )}
 
-                {step === 'confirm' && <StepConfirm entries={entries} period={period} />}
+                {step === 'confirm' && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {submitError && (
+                      <Alert severity="error" data-testid="import-submit-error">
+                        <AlertTitle>Importazione non riuscita</AlertTitle>
+                        {submitError}
+                      </Alert>
+                    )}
+                    <StepConfirm entries={entries} period={period} />
+                  </Box>
+                )}
               </>
             )}
           </Box>
