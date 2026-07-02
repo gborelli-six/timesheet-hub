@@ -29,6 +29,21 @@ _TASKS: dict[str, list[Task]] = {
     ],
 }
 
+_PROJECTS_JIRA: list[Project] = [
+    Project(id="PROJ-A", name="Jira Project Alpha"),
+    Project(id="PROJ-B", name="Jira Project Beta"),
+]
+
+_TASKS_JIRA: dict[str, list[Task]] = {
+    "PROJ-A": [
+        Task(id="PROJ-A-1", name="Frontend Issue"),
+        Task(id="PROJ-A-2", name="Backend Issue"),
+    ],
+    "PROJ-B": [
+        Task(id="PROJ-B-1", name="Design Issue"),
+    ],
+}
+
 
 class StubAdapter(TimesheetAdapter):
     """Adapter deterministico per E2E. Attivo solo con E2E_TEST_MODE=true."""
@@ -65,7 +80,7 @@ class StubAdapter(TimesheetAdapter):
             raise AdapterConnectionError("Stub: backend non raggiungibile")
         if "E2E__EXPIRED" in marker:
             raise AdapterAuthError("Stub: credenziali scadute")
-        projects = _PROJECTS
+        projects = _PROJECTS_JIRA if config.service == ServiceType.jira else _PROJECTS
         if query:
             projects = [p for p in projects if query.lower() in p.name.lower()]
         return projects
@@ -78,7 +93,8 @@ class StubAdapter(TimesheetAdapter):
             raise AdapterConnectionError("Stub: backend non raggiungibile")
         if "E2E__EXPIRED" in marker:
             raise AdapterAuthError("Stub: credenziali scadute")
-        tasks = list(_TASKS.get(project_id, []))
+        task_map = _TASKS_JIRA if config.service == ServiceType.jira else _TASKS
+        tasks = list(task_map.get(project_id, []))
         if query:
             tasks = [t for t in tasks if query.lower() in t.name.lower()]
         return tasks
@@ -88,6 +104,7 @@ def _maybe_register(registry: AdapterRegistry = adapter_registry) -> None:
     """Registra StubAdapter nel registry se E2E_TEST_MODE è attivo."""
     if settings.e2e_test_mode:
         registry.register(ServiceType.odoo, StubAdapter)
+        registry.register(ServiceType.jira, StubAdapter)
 
 
 _maybe_register()

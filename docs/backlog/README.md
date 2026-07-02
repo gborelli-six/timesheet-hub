@@ -20,6 +20,7 @@ Ordine di rilascio **employee-first** (vedi `docs/timesheet-hub-roadmap.md` v0.5
 | E6 | 6 | 0 | 0 | 0 | 6 ✅ | parsing Excel — completata |
 | E7 | 7 | 0 | 0 | 0 | 7 ✅ | architettura plug-in + adapter Odoo — completata |
 | E8a | 6 | 0 | 0 | 0 | 6 ✅ | wizard employee — completata |
+| E8b | 5 | 0 | 0 | 0 | 5 ✅ | connettore Jira (anticipato da E11) — completata |
 | E9a | 0 | 0 | TBD | 0 | TBD | log employee — storie just-in-time |
 | E3bis | 0 | 0 | TBD | 0 | TBD | gestione ruoli — storie just-in-time |
 | E10 | 0 | 0 | TBD | 0 | TBD | pannello Admin — storie just-in-time |
@@ -132,13 +133,13 @@ Storia → documentazione permanente:
 - STORY-E8a-6: `e2e/tests/import-suggestions.spec.ts`
 
 ## Prossima epica da implementare
-**E9a** (log importazioni Employee) — E8a completata. Dipende da E8a (✅), nessun blocco.
+**E9a** (log importazioni Employee) — dipende da E8a (✅) e E8b (✅), nessun blocco.
 
 ## Roadmap epiche successive (storie da scrivere just-in-time)
 Le epiche E9a, E3bis, E10, E8b, E9b non hanno ancora file storie: si dettagliano al momento dell'inserimento in sprint, nell'ordine di rilascio sopra.
 
 - **Numerazione storie**: gli `STORY-NNN` sono globali e progressivi. E4 termina a **STORY-030**; E5/E6/E7 hanno ID provvisori (`STORY-E5-N`/`STORY-E6-N`/`STORY-E7-N`) da fissare in sequenza al commit in sprint. Le epiche successive riprendono da lì.
-- **Fase Employee** (🏁 MVP): E8a (wizard self-import + assegnazione multi-connettore per riga con suggerimenti) · E9a (log propri).
+- **Fase Employee** (🏁 MVP): E8a (wizard self-import + assegnazione multi-connettore per riga con suggerimenti) · **E8b** (connettore Jira, anticipato da E11) · E9a (log propri).
 - **Fase Admin** (🏁): E3bis (gestione ruoli, backend identità) · E10 (pannello Admin UI: utenti/ruoli, CRUD backend, mapping Excel).
 - **Fase HR** (🏁): E8b (Step 0 selezione dipendente + `POST /imports?for=`) · E9b (vista di tutti i log + filtri avanzati).
 - **Post-v1**: E11 (adapter Jira/Linear/Asana) · E12 (pannello per-utente per modificare le mappature riga↔connettore preimpostate).

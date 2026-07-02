@@ -65,6 +65,13 @@ export async function generateE2EFixtures(): Promise<void> {
     { date: "2026-03-02", project: "Beta Project", task: "Review", hours: 4, notes: "" },
   ]);
 
+  // E8b: fixture per il test del wizard con connettore Jira stub
+  // excel_project/excel_task devono corrispondere al seed-mapping iniettato dal beforeEach
+  await writeFixture("jira-happy.xlsx", [
+    { date: "2026-04-01", project: "Jira Frontend Work", task: "Frontend Task", hours: 8, notes: "" },
+    { date: "2026-04-02", project: "Jira Frontend Work", task: "Frontend Task", hours: 4, notes: "" },
+  ]);
+
   console.log("[fixtures/generate] Fixture Excel generate in", XLSX_DIR);
 }
 

@@ -244,6 +244,49 @@ Accertati che:
 
 ---
 
+## Note per adapter REST (confronto con XML-RPC Odoo)
+
+Il pattern dei 6 passi vale sia per XML-RPC (Odoo) sia per REST/JSON (Jira). Le differenze principali:
+
+| Aspetto | Odoo XML-RPC | Jira REST |
+|---|---|---|
+| HTTP lib | `xmlrpc.client` stdlib | `urllib.request` stdlib |
+| Auth | Multi-step: `authenticate()` → uid poi in ogni call | Header-based: `base64(email:api_token)` |
+| Parametri config | `db`, `user`, `password`, `connector_id` | `user` (email), `password` (API token) |
+| Formato risposta | Deserializzazione automatica XML-RPC | Parsing JSON manuale |
+| Errore auth | UID falso → `AdapterAuthError` | HTTP 401/403 → `AdapterAuthError` |
+| Errore connessione | `OSError`, `ProtocolError` | `OSError`, HTTP 5xx |
+
+### Auth REST: pattern consigliato
+
+```python
+import base64
+
+def _auth_header(self, config: AdapterConfig) -> str:
+    creds = f"{config.params['user']}:{config.params['password']}"
+    return "Basic " + base64.b64encode(creds.encode()).decode()
+```
+
+### Submit REST: pattern per worklog/record
+
+```python
+import json, urllib.request
+
+body = json.dumps({...}).encode()
+req = urllib.request.Request(
+    url, data=body,
+    headers={
+        "Authorization": self._auth_header(config),
+        "Content-Type": "application/json",
+    },
+    method="POST",
+)
+```
+
+Riferimento implementazione completa: `backend/app/adapters/jira.py`.
+
+---
+
 ## Riepilogo file modificati
 
 | File | Azione |
