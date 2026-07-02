@@ -16,7 +16,6 @@ from app.core.rbac import CurrentUser, UserRole, require_role
 from app.core.security import decrypt_secret
 from app.db.session import get_db
 from app.models.user_token import UserToken
-from app.routers.connectors import _get_user_id
 
 router = APIRouter(prefix="/api/adapters", tags=["adapters"])
 
@@ -82,13 +81,12 @@ def _map_adapter_error(exc: Exception) -> HTTPException:
 @router.get("/{label}/projects", response_model=list[ProjectOut])
 def get_projects(
     label: str,
-    _: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
-    user_id: Annotated[UUID, Depends(_get_user_id)],
+    user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
     db: Session = Depends(get_db),
     query: str | None = Query(default=None),
 ) -> list[ProjectOut]:
-    token = _get_token_or_404(db, user_id, label)
-    config = _build_adapter_config(token, user_id)
+    token = _get_token_or_404(db, user.id, label)
+    config = _build_adapter_config(token, user.id)
     try:
         adapter_cls = adapter_registry.get(config.service)
         projects = adapter_cls().get_projects(config, query)
@@ -106,13 +104,12 @@ def get_projects(
 def get_tasks(
     label: str,
     project_id: str,
-    _: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
-    user_id: Annotated[UUID, Depends(_get_user_id)],
+    user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
     db: Session = Depends(get_db),
     query: str | None = Query(default=None),
 ) -> list[TaskOut]:
-    token = _get_token_or_404(db, user_id, label)
-    config = _build_adapter_config(token, user_id)
+    token = _get_token_or_404(db, user.id, label)
+    config = _build_adapter_config(token, user.id)
     try:
         adapter_cls = adapter_registry.get(config.service)
         tasks = adapter_cls().get_tasks(project_id, config, query)

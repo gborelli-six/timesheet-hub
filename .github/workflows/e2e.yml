@@ -59,18 +59,18 @@ jobs:
       - name: Start stack (nginx proxy incluso)
         run: docker compose -f docker-compose.yml -f docker-compose.ci.yml --profile proxy up -d
 
-      - name: Wait for backend /health
+      - name: Wait for backend /api/health
         run: |
-          echo "Attendo backend /health..."
+          echo "Attendo backend /api/health..."
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:8000/health; then
+            if curl -sf http://localhost:8000/api/health; then
               echo "Backend pronto."
               break
             fi
             echo "Tentativo $i/30..."
             sleep 2
           done
-          curl -sf http://localhost:8000/health || (docker compose logs && exit 1)
+          curl -sf http://localhost:8000/api/health || (docker compose logs && exit 1)
 
       - name: Wait for nginx proxy
         run: |

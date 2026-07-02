@@ -21,7 +21,7 @@ def _make_session_cookie(
     now = datetime.now(UTC)
     return pyjwt.encode(
         {
-            "sub": "user-123",
+            "sub": "00000000-0000-4000-8000-000000000123",
             "email": email,
             "role": role,
             "iat": now,

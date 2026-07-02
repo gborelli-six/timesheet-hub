@@ -26,7 +26,6 @@ from app.routers.adapters import (
     _get_token_or_404,
     _map_adapter_error,
 )
-from app.routers.connectors import _get_user_id
 from app.services import mapping_service
 
 router = APIRouter(prefix="/api/me", tags=["me-imports"])
@@ -169,10 +168,10 @@ def _derive_period(entries: list[EntryIn]) -> tuple[date | None, date | None]:
 @router.post("/imports", response_model=ImportResponse)
 def submit_imports(
     body: ImportRequest,
-    _: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
-    user_id: Annotated[UUID, Depends(_get_user_id)],
+    user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
     db: Session = Depends(get_db),
 ) -> ImportResponse:
+    user_id = user.id
     entries = body.entries
 
     # 1. Raccogli i label distinti presenti nelle assignments
@@ -328,8 +327,7 @@ def submit_imports(
 
 @router.get("/imports", response_model=list[ImportLogSummary])
 def list_imports(
-    _: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
-    user_id: Annotated[UUID, Depends(_get_user_id)],
+    user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
     db: Session = Depends(get_db),
     period_from: date | None = Query(default=None),
     period_to: date | None = Query(default=None),
@@ -342,7 +340,7 @@ def list_imports(
     q = (
         db.query(Import)
         .options(selectinload(Import.rows))
-        .filter(Import.employee_id == user_id)
+        .filter(Import.employee_id == user.id)
     )
     if period_from is not None:
         q = q.filter(Import.period_end >= period_from)
@@ -363,13 +361,12 @@ def list_imports(
 @router.get("/imports/{import_id}", response_model=ImportLogDetail)
 def get_import(
     import_id: UUID,
-    _: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
-    user_id: Annotated[UUID, Depends(_get_user_id)],
+    user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
     db: Session = Depends(get_db),
 ) -> ImportLogDetail:
     imp = (
         db.query(Import)
-        .filter(Import.id == import_id, Import.employee_id == user_id)
+        .filter(Import.id == import_id, Import.employee_id == user.id)
         .first()
     )
     # Stessa risposta per inesistente e per log di altro utente: nessun leakage.

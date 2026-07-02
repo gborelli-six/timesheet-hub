@@ -1,15 +1,14 @@
 import logging
 from datetime import datetime
 from typing import Annotated
-from uuid import UUID, uuid4
+from uuid import uuid4
 
-import jwt
-from fastapi import APIRouter, Cookie, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from app.core.rbac import CurrentUser, UserRole, require_role
-from app.core.security import decode_jwt, encrypt_secret
+from app.core.security import encrypt_secret
 from app.db.session import get_db
 from app.models.user_token import UserToken, UserTokenService
 
@@ -18,25 +17,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["connectors"])
 
 _ALL_ROLES = [UserRole.employee, UserRole.hr, UserRole.admin]
-
-
-def _get_user_id(session: Annotated[str | None, Cookie()] = None) -> UUID:
-    if session is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token"
-        )
-    try:
-        payload = decode_jwt(session)
-        return UUID(payload["sub"])
-    except (
-        jwt.ExpiredSignatureError,
-        jwt.InvalidTokenError,
-        KeyError,
-        ValueError,
-    ) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-        ) from exc
 
 
 class ConnectorUpsertRequest(BaseModel):
@@ -62,11 +42,10 @@ class ConnectorOut(BaseModel):
 
 @router.get("/", response_model=list[ConnectorOut])
 def list_connectors(
-    _: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
-    user_id: Annotated[UUID, Depends(_get_user_id)],
+    user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
     db: Session = Depends(get_db),
 ) -> list[ConnectorOut]:
-    tokens = db.query(UserToken).filter(UserToken.user_id == user_id).all()
+    tokens = db.query(UserToken).filter(UserToken.user_id == user.id).all()
     return [
         ConnectorOut(
             label=t.label,
@@ -86,10 +65,10 @@ def list_connectors(
 def upsert_connector(
     label: str,
     body: ConnectorUpsertRequest,
-    _: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
-    user_id: Annotated[UUID, Depends(_get_user_id)],
+    user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
     db: Session = Depends(get_db),
 ) -> ConnectorOut:
+    user_id = user.id
     token = (
         db.query(UserToken)
         .filter(UserToken.user_id == user_id, UserToken.label == label)
@@ -160,13 +139,12 @@ def upsert_connector(
 @router.delete("/{label}", status_code=status.HTTP_200_OK)
 def delete_connector(
     label: str,
-    _: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
-    user_id: Annotated[UUID, Depends(_get_user_id)],
+    user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
     db: Session = Depends(get_db),
 ) -> dict:
     token = (
         db.query(UserToken)
-        .filter(UserToken.user_id == user_id, UserToken.label == label)
+        .filter(UserToken.user_id == user.id, UserToken.label == label)
         .first()
     )
     if token is None:

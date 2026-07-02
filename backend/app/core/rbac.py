@@ -1,5 +1,6 @@
 from enum import StrEnum
 from typing import Annotated
+from uuid import UUID
 
 import jwt
 from fastapi import Cookie, Depends, HTTPException, status
@@ -15,6 +16,7 @@ class UserRole(StrEnum):
 
 
 class CurrentUser(BaseModel):
+    id: UUID
     email: str
     role: UserRole
 
@@ -29,13 +31,17 @@ def get_current_user(
         )
     try:
         payload = decode_jwt(session)
-        return CurrentUser(email=payload["email"], role=payload["role"])
+        return CurrentUser(
+            id=UUID(payload["sub"]),
+            email=payload["email"],
+            role=payload["role"],
+        )
     except jwt.ExpiredSignatureError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session expired",
         ) from exc
-    except jwt.InvalidTokenError as exc:
+    except (jwt.InvalidTokenError, KeyError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing token",
