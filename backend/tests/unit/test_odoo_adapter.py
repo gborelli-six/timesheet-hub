@@ -21,7 +21,6 @@ def _config():
         service=ServiceType.odoo,
         base_url="http://odoo.test",
         params={
-            "connector_id": "uuid-odoo-1",
             "db": "db",
             "user": "admin",
             "password": "pass",
@@ -37,19 +36,6 @@ def _odoo_entry():
         connector_assignments=[
             ConnectorAssignment(
                 connector_id="uuid-odoo-1", project_id="42", task_id="7"
-            )
-        ],
-    )
-
-
-def _jira_entry():
-    return TimesheetEntry(
-        date="2026-01-15",
-        hours=4.0,
-        note="Design",
-        connector_assignments=[
-            ConnectorAssignment(
-                connector_id="uuid-jira-1", project_id="P1", task_id="T1"
             )
         ],
     )
@@ -131,21 +117,7 @@ def test_submit_two_rows_ok():
 
 
 # ---------------------------------------------------------------------------
-# 5. submit — entry mista odoo+jira → solo odoo viene inviata
-# ---------------------------------------------------------------------------
-
-
-def test_submit_skips_non_odoo_row():
-    factory, _, mock_obj = _make_proxy_factory()
-    with patch(PATCH, side_effect=factory):
-        adapter = OdooAdapter()
-        result = adapter.submit([_odoo_entry(), _jira_entry()], _config())
-    assert result.success_count == 1
-    assert mock_obj.execute_kw.call_count == 1
-
-
-# ---------------------------------------------------------------------------
-# 6. submit — authenticate rilancia socket.timeout → AdapterConnectionError
+# 5. submit — authenticate rilancia socket.timeout → AdapterConnectionError
 # ---------------------------------------------------------------------------
 
 

@@ -195,7 +195,8 @@ I warning sono prodotti dal Normalizer (`computeWarnings`, E6-2) e visualizzati 
 Storico delle importazioni. Accessibile dalla navbar e dalla dashboard.
 
 **Struttura:**
-- Tabella/lista con colonne: data, dipendente, operatore (se diverso), backend, righe ok/fail, esito
+- Tabella/lista con colonne: data, periodo, backend, righe ok/fail, esito
+  (colonne "dipendente" e "operatore" aggiunte in E9b per la vista HR)
 - Filtri: per periodo, backend, esito (successo/parziale/fallito)
 - [Solo HR/Admin] Filtro per dipendente
 - Click su una riga → dettaglio: tutte le informazioni del log, inclusi messaggi di errore per righe fallite

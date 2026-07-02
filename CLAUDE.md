@@ -204,12 +204,12 @@ Ordine di rilascio **employee-first** (roadmap v0.5): 🏁 Employee MVP → 🏁
 | E1 | ✅ Done | 10 | Infrastruttura, CI, Docker, nginx, Playwright skeleton | — |
 | E2 | ✅ Done | 6 | ORM, Alembic, RBAC middleware, TimestampMixin | — |
 | E3 | ✅ Done | 7 | Google OAuth, JWT, cookie httpOnly, tabella `users` (ruolo `employee` di default) | E2 |
-| E4 | ⬜ Todo | 7 | Design token MUI v7, Mantis shell (Header, SideNav, routing per-ruolo) | — |
-| E5 | ⬜ Todo | 6 | Profilo & token utente, AES-256-GCM, tabella `user_tokens`, API write-only | E3, E4 |
-| E6 | ⬜ Todo | 6 | Upload Excel, SheetJS parsing, `TimesheetEntry[]` (con `connectorAssignments`), Normalizer | E4 |
-| E7 | ⬜ Todo | TBD | Architettura plug-in adapter + adapter Odoo (JSON-RPC, `getProjects`/`getTasks`); connettori per-utente via `user_tokens` | E5 |
-| E8a | ⬜ Todo | 6+ | Wizard importazione **Employee** (self-import, step 1–4, no Step 0) + **assegnazione multi-connettore per riga** con suggerimenti (`connector_row_mappings`) | E5, E6, E7 |
-| E9a | ⬜ Todo | TBD | Log importazioni **Employee** (solo propri log + dettaglio) | E8a |
+| E4 | ✅ Done | 7 | Design token MUI v7, Mantis shell (Header, SideNav, routing per-ruolo) | — |
+| E5 | ✅ Done | 6 | Profilo & token utente, AES-256-GCM, tabella `user_tokens`, API write-only | E3, E4 |
+| E6 | ✅ Done | 6 | Upload Excel, SheetJS parsing, `TimesheetEntry[]` (con `connectorAssignments`), Normalizer | E4 |
+| E7 | ✅ Done | 7 | Architettura plug-in adapter + adapter Odoo (JSON-RPC, `getProjects`/`getTasks`); connettori per-utente via `user_tokens` | E5 |
+| E8a | ✅ Done | 6 | Wizard importazione **Employee** (self-import, step 1–4, no Step 0) + **assegnazione multi-connettore per riga** con suggerimenti (`connector_row_mappings`) | E5, E6, E7 |
+| E9a | ⬜ Todo | 7 | Log importazioni **Employee** (solo propri log + dettaglio) | E8a |
 | — | 🏁 | — | **Milestone: Employee MVP** | — |
 | E3bis | ⬜ Todo | TBD | Gestione ruoli (API assegnazione/promozione employee/hr/admin) | E3 |
 | E10 | ⬜ Todo | TBD | Pannello Admin (UI utenti/ruoli su E3bis, backend config CRUD, mapping Excel) | E3bis, E8a |
@@ -220,7 +220,7 @@ Ordine di rilascio **employee-first** (roadmap v0.5): 🏁 Employee MVP → 🏁
 | E11 | ⬜ Todo | TBD | Adapter aggiuntivi (Jira, Linear, Asana — post-v1) | E7 |
 | E12 | ⬜ Todo | TBD | Pannello per-utente mappature riga↔connettore preimpostate (post-v1) | E8a |
 
-**Prossima epica da implementare:** E4 (nessun blocco, può partire subito)
+**Prossima epica da implementare:** E9a (log importazioni Employee — dipende da E8a ✅, nessun blocco)
 
 ---
 

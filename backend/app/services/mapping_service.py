@@ -78,7 +78,7 @@ def upsert_row_mappings(
     connector_label, remote_project_id, remote_project_name,
     remote_task_id, remote_task_name.
     """
-    now = datetime.now(UTC).replace(tzinfo=None)
+    now = datetime.now(UTC)
 
     for a in assignments:
         norm_proj = _normalize(a.get("excel_project", ""))

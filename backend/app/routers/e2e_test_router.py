@@ -2,13 +2,14 @@
 Rotte test-only — attive SOLO se E2E_TEST_MODE=true (ADR-003-B).
 Questo modulo non viene importato se il flag è assente.
 
-POST /_test/session      — emette JWT HS256 per il ruolo richiesto (STORY-020).
-POST /_test/reset        — cancella connector_row_mappings e user_tokens.
-POST /_test/seed-mapping — inserisce un UserToken e un ConnectorRowMapping di test.
+POST /_test/session        — emette JWT HS256 per il ruolo richiesto (STORY-020).
+POST /_test/reset          — cancella imports, connector_row_mappings e user_tokens.
+POST /_test/seed-mapping   — inserisce un UserToken e un ConnectorRowMapping di test.
+POST /_test/seed-import-log — inietta Import + ImportRow per test RBAC (E9a-7).
 """
 
 import re
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
@@ -19,7 +20,8 @@ from app.core.rbac import UserRole
 from app.core.security import create_jwt, encrypt_secret
 from app.db.session import get_db
 from app.models.connector_row_mapping import ConnectorRowMapping
-from app.models.user import User
+from app.models.import_log import Import, ImportRow, ImportRowStatus, ImportStatus
+from app.models.user import User, upsert_user
 from app.models.user_token import UserToken, UserTokenService
 
 router = APIRouter(prefix="/_test", tags=["e2e-test-only"])
@@ -47,15 +49,18 @@ class SeedMappingRequest(BaseModel):
 
 
 @router.post("/session")
-async def create_test_session(body: TestSessionRequest, response: Response) -> dict:
+def create_test_session(
+    body: TestSessionRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> dict:
     """
     Emette un JWT HS256 bypassando OAuth Google e lo imposta come cookie session.
-    Identico al comportamento di POST /api/auth/callback.
+    Crea/aggiorna l'utente nel DB identicamente a POST /api/auth/callback.
     Accetta: {"email": "..@sixfeetup.it", "role": "employee|hr|admin"}
     """
-    token = create_jwt(
-        {"sub": f"test-{body.role}", "email": body.email, "role": body.role}
-    )
+    user = upsert_user(db, email=body.email, name=None)
+    token = create_jwt({"sub": str(user.id), "email": user.email, "role": body.role})
     response.set_cookie(
         key="session",
         value=token,
@@ -70,10 +75,68 @@ async def create_test_session(body: TestSessionRequest, response: Response) -> d
 
 @router.post("/reset")
 def reset_test_data(db: Session = Depends(get_db)) -> dict:
+    db.execute(delete(Import))  # cascade elimina import_rows
     db.execute(delete(ConnectorRowMapping))
     db.execute(delete(UserToken))
     db.commit()
     return {"ok": True}
+
+
+class SeedImportLogRequest(BaseModel):
+    email: str
+
+
+@router.post("/seed-import-log")
+def seed_import_log(req: SeedImportLogRequest, db: Session = Depends(get_db)) -> dict:
+    """
+    Inietta un record Import (partial: 1 success + 1 failed) per l'utente dato.
+    Usato in E2E per testare il RBAC "employee vede solo i propri log" (Scenario #15).
+    """
+    user = db.scalars(select(User).where(User.email == req.email)).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail=f"User not found: {req.email}")
+
+    imp = Import(
+        employee_id=user.id,
+        operator_id=None,
+        status=ImportStatus.partial,
+        period_start=date(2026, 1, 15),
+        period_end=date(2026, 1, 16),
+        total_rows=2,
+        success_rows=1,
+        failed_rows=1,
+    )
+    db.add(imp)
+    db.flush()
+
+    db.add(
+        ImportRow(
+            import_id=imp.id,
+            row_number=1,
+            connector_label="odoo-test",
+            service=UserTokenService.odoo,
+            excel_project="E2E__OK",
+            excel_task="development",
+            hours=8.0,
+            status=ImportRowStatus.success,
+            error_message=None,
+        )
+    )
+    db.add(
+        ImportRow(
+            import_id=imp.id,
+            row_number=2,
+            connector_label="odoo-test",
+            service=UserTokenService.odoo,
+            excel_project="E2E__OK",
+            excel_task="E2E__FAIL",
+            hours=4.0,
+            status=ImportRowStatus.failed,
+            error_message="Stub: task E2E__FAIL rejected",
+        )
+    )
+    db.commit()
+    return {"ok": True, "import_id": str(imp.id)}
 
 
 @router.post("/seed-mapping")
@@ -110,7 +173,7 @@ def seed_mapping(req: SeedMappingRequest, db: Session = Depends(get_db)) -> dict
 
     norm_proj = _normalize(req.excel_project)
     norm_task = _normalize(req.excel_task)
-    now = datetime.now(UTC).replace(tzinfo=None)
+    now = datetime.now(UTC)
 
     mapping = db.scalars(
         select(ConnectorRowMapping).where(

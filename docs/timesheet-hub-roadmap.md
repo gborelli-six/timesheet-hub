@@ -37,9 +37,9 @@ Ordinata per **priorità di rilascio** (employee-first → admin → HR). Le tre
 | **E4** | ✅ Done | Style guide & shell applicativa | Token (palette, font, spaziatura), header/footer/menu, layout unificato, schermata login, componenti base. Sblocca tutte le UI successive. | — | UX/UI → Tech |
 | **E5** | ✅ Done | Profilo & token utente | Cifratura AES-256-GCM, CRUD token per backend, campo password-like, stati. Estende `users` se servono campi profilo. Prerequisito dell'import. | `user_tokens` | UX/UI → Tech |
 | **E6** | ✅ Done | Parsing Excel & Normalizer | Parsing client-side SheetJS, modello `TimesheetEntry[]`, mapping colonne (default hardcoded; config in E10), preview con warning righe anomale. | — | UX/UI → Tech |
-| **E7** | ⬜ Todo | Architettura plug-in + adapter Odoo | Interfaccia adapter (`getProjects`/`getTasks` per autocomplete live), registry estendibile, integrazione Odoo (JSON-RPC), gestione errori parziali. Adapter usa credenziali per-utente da `user_tokens`. | — | Tech |
-| **E8a** | ⬜ Todo | Flusso di importazione — **Employee** | Wizard self-import (step 1–4, **nessuno** Step 0): upload → preview → **assegnazione multi-connettore per riga** (progetto/task in autocomplete + suggerimenti da storico) → submit → risultato. `POST /imports` sul proprio utente. Dipende da E5, E6, E7. | `imports`, `connector_row_mappings` | UX/UI → Tech |
-| **E9a** | ⬜ Todo | Log delle importazioni — **Employee** | Vista dei **propri** log + dettaglio per riga. Dipende da E8a. | — (legge `imports`) | UX/UI → Tech |
+| **E7** | ✅ Done | Architettura plug-in + adapter Odoo | Interfaccia adapter (`getProjects`/`getTasks` per autocomplete live), registry estendibile, integrazione Odoo (JSON-RPC), gestione errori parziali. Adapter usa credenziali per-utente da `user_tokens`. | — | Tech |
+| **E8a** | ✅ Done | Flusso di importazione — **Employee** | Wizard self-import (step 1–4, **nessuno** Step 0): upload → preview → **assegnazione multi-connettore per riga** (progetto/task in autocomplete + suggerimenti da storico) → submit → risultato. `POST /imports` sul proprio utente. Dipende da E5, E6, E7. | `connector_row_mappings` · (`imports` non realizzata in E8a: rinviata a E9a) | UX/UI → Tech |
+| **E9a** | ✅ Done | Log delle importazioni — **Employee** | Vista dei **propri** log + dettaglio per riga. Include la persistenza del log (`imports`/`import_rows`) non realizzata in E8a. Dipende da E8a. | `imports`, `import_rows` (assorbite da E8a) | UX/UI → Tech |
 | 🏁 | — | **Milestone: Employee MVP** | Flusso utente normale completo end-to-end. | — | — |
 | **E3bis** | ⬜ Todo | Gestione ruoli | Meccanismo/API di assegnazione e promozione ruoli (employee/hr/admin), oggi assente in produzione. Estende il dominio identità di E3; resta separata dalla UI Admin. | — (estende `users`) | Tech |
 | **E10** | ⬜ Todo | Pannello Admin | UI utenti/ruoli (su API di E3bis), mapping Excel configurabile. Usato raramente. | — | UX/UI → Tech |
@@ -49,6 +49,12 @@ Ordinata per **priorità di rilascio** (employee-first → admin → HR). Le tre
 | 🏁 | — | **Milestone: HR** | Operatività HR completa (import per conto terzi, visibilità totale). | — | — |
 | **E11** | ⬜ Todo | Adapter aggiuntivi (Jira, Linear, Asana) | Nuovi file sul pattern di E7. Differita post-v1. | — | Tech |
 | **E12** | ⬜ Todo | Pannello mappature per-utente | UI di profilo per visualizzare/modificare le mappature riga↔connettore preimpostate (`connector_row_mappings`) senza avviare un import. Differita post-v1. Dipende da E8a. | — (gestisce `connector_row_mappings`) | UX/UI → Tech |
+
+---
+
+## Note di riconciliazione
+
+**E8a / E9a — Persistenza log**: la roadmap v0.5 assegnava le tabelle `imports`/`import_rows` a E8a, ma E8a è stata chiusa senza persistere i log di importazione (`POST /api/me/imports` restituiva i risultati solo nella response HTTP). E9a ha assorbito la persistenza: possiede i modelli `imports`/`import_rows`, la migrazione `0007_create_imports_and_import_rows.py` e la scrittura del log all'interno del `POST /api/me/imports` esistente.
 
 ---
 

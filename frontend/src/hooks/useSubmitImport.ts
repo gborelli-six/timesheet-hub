@@ -1,15 +1,11 @@
 import { useMutation } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
 import type { TimesheetEntry } from '@/lib/timesheet/types'
-import type { ConnectorResult } from '@/types'
-
-interface ImportResponse {
-  results: ConnectorResult[]
-}
+import type { ImportSubmitResponse } from '@/types'
 
 export function useSubmitImport() {
   return useMutation({
-    mutationFn: (entries: TimesheetEntry[]): Promise<ConnectorResult[]> => {
+    mutationFn: (entries: TimesheetEntry[]): Promise<ImportSubmitResponse> => {
       const body = {
         entries: entries
           .filter((e) => e.connectorAssignments.length > 0)
@@ -28,9 +24,7 @@ export function useSubmitImport() {
             })),
           })),
       }
-      return (apiClient.post('/api/me/imports', body) as Promise<ImportResponse>).then(
-        (r) => r.results,
-      )
+      return apiClient.post('/api/me/imports', body) as Promise<ImportSubmitResponse>
     },
   })
 }

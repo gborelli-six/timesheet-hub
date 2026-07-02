@@ -6,6 +6,7 @@ import AuthErrorPage from '@/pages/AuthErrorPage'
 import CallbackPage from '@/pages/CallbackPage'
 import ImportPage from '@/pages/ImportPage'
 import LogPage from '@/pages/LogPage'
+import LogDetailPage from '@/pages/LogDetailPage'
 import ProfilePage from '@/pages/ProfilePage'
 import AdminPage from '@/pages/AdminPage'
 
@@ -25,6 +26,7 @@ export default function App() {
         <Route index element={<Navigate to="/import" replace />} />
         <Route path="/import" element={<ImportPage />} />
         <Route path="/log" element={<LogPage />} />
+        <Route path="/log/:id" element={<LogDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<Navigate to="/import" replace />} />

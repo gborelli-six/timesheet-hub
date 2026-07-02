@@ -42,4 +42,6 @@ class ConnectorRowMapping(TimestampMixin, Base):
     remote_project_name: Mapped[str | None] = mapped_column(String(500), nullable=True)
     remote_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     remote_task_name: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

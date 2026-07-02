@@ -48,6 +48,8 @@ class UserRole(StrEnum):
 | (E3+) `POST /auth/callback` | — | — | — | Pubblico, scambio code → JWT |
 | (E3+) `POST /imports` | ✅ | ✅ | ✅ | Upload proprio timesheet |
 | (E3+) `POST /imports?for=<email>` | ❌ | ✅ | ✅ | Upload per conto terzi |
+| `GET /api/me/imports` | ✅ | ✅ | ✅ | Solo i propri log (vista di tutti i log → E9b) |
+| `GET /api/me/imports/{id}` | ✅ | ✅ | ✅ | 404 se il log non appartiene al richiedente (nessun leakage) |
 | (E3+) `GET /admin/*` | ❌ | ❌ | ✅ | Solo admin |
 
 Aggiornare questa tabella ad ogni nuovo endpoint protetto.

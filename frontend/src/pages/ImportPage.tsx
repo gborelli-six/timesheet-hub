@@ -433,7 +433,7 @@ function StepResult({
 
       {/* Footer */}
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.5, mt: 1 }}>
-        <Button variant="outlined" onClick={onGoToLog}>
+        <Button variant="outlined" onClick={onGoToLog} data-testid="result-go-to-log">
           Log dettagliato
         </Button>
         <Button variant="contained" onClick={onReset}>
@@ -453,6 +453,7 @@ export default function ImportPage() {
   const [phase, setPhase] = useState<ImportPhase>('form')
   const [maxReached, setMaxReached] = useState(0)
   const [importResults, setImportResults] = useState<ConnectorResult[]>([])
+  const [importId, setImportId] = useState<string | null>(null)
 
   const [entries, setEntries] = useState<TimesheetEntry[]>([])
   const [warnings, setWarnings] = useState<RowWarning[]>([])
@@ -550,8 +551,9 @@ export default function ImportPage() {
     setSubmitError(null)
     setPhase('submitting')
     submitImport(entries, {
-      onSuccess: (results) => {
-        setImportResults(results)
+      onSuccess: (res) => {
+        setImportResults(res.results)
+        setImportId(res.import_id)
         setPhase('result')
       },
       onError: (err) => {
@@ -566,6 +568,7 @@ export default function ImportPage() {
     setPhase('form')
     setMaxReached(0)
     setImportResults([])
+    setImportId(null)
     setEntries([])
     setWarnings([])
     setFormatError(null)
@@ -769,7 +772,7 @@ export default function ImportPage() {
               <StepResult
                 results={importResults}
                 onReset={handleReset}
-                onGoToLog={() => navigate('/log')}
+                onGoToLog={() => navigate(importId ? `/log/${importId}` : '/log')}
               />
             )}
 

@@ -169,20 +169,35 @@ Per evitare la ri-mappatura manuale a ogni importazione, il sistema memorizza pe
 
 ## Log delle importazioni
 
-Ogni importazione genera un record di log contenente:
+Ogni importazione viene persistita al momento del submit (`POST /api/me/imports`).
 
-- Dipendente di riferimento
-- Utente che ha effettuato l'operazione (può essere diverso se è HR)
-- Data e ora
-- Backend coinvolti
-- Numero di righe processate / importate con successo / fallite
-- Eventuali messaggi di errore per righe fallite
+### Modello dati
 
-I log sono consultabili:
+**`imports`** (header):
+- `id` — UUID PK
+- `employee_id` — UUID FK → `users.id` (dipendente di riferimento)
+- `operator_id` — UUID FK → `users.id` nullable (NULL per self-import; valorizzato da E8b/HR)
+- `status` — `success` | `partial` | `failed` (derivato dai conteggi)
+- `period_start` / `period_end` — date derivate dalle entries importate
+- `total_rows` / `success_rows` / `failed_rows` — conteggi aggregati
+- `created_at` / `updated_at` — timestamp (TimestampMixin)
 
-- Dal **dipendente**: solo i propri.
-- Dall'**HR Manager**: tutti.
-- Dall'**Admin**: tutti, con filtri per utente, periodo e backend.
+**`import_rows`** (dettaglio per riga × connettore):
+- `import_id` — FK → `imports.id` CASCADE
+- `row_number` — indice 1-based come nel foglio
+- `connector_label` / `service` — connettore usato
+- `excel_project` / `excel_task` — dati sorgente
+- `remote_project_id|name` / `remote_task_id|name` — destinazione remota
+- `hours`, `status` (`success`|`failed`), `error_message` nullable
+
+### Endpoint
+- `GET /api/me/imports` — lista proprie importazioni, filtri opzionali `period_from/to`, `service`, `status`; ordinamento `created_at` DESC
+- `GET /api/me/imports/{id}` — dettaglio con righe; 404 se non proprio (nessun leakage cross-utente)
+
+### Visibilità per ruolo
+- `employee`: solo i propri log (via `GET /api/me/imports`)
+- HR Manager: tutti i log — E9b (futura)
+- Admin: tutti i log — E9b (futura)
 
 ---
 
