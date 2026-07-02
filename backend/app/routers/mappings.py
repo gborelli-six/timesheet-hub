@@ -1,5 +1,4 @@
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -7,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from app.core.rbac import CurrentUser, UserRole, require_role
 from app.db.session import get_db
-from app.routers.connectors import _get_user_id
 from app.services import mapping_service
 
 router = APIRouter(prefix="/api/me", tags=["me-mappings"])
@@ -40,12 +38,11 @@ class MappingSuggestionsResponse(BaseModel):
 @router.post("/mapping-suggestions", response_model=MappingSuggestionsResponse)
 def mapping_suggestions(
     body: MappingSuggestionsRequest,
-    _: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
-    user_id: Annotated[UUID, Depends(_get_user_id)],
+    user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
     db: Session = Depends(get_db),
 ) -> MappingSuggestionsResponse:
     rows = [r.model_dump() for r in body.rows]
-    raw = mapping_service.get_suggestions(db, user_id, rows)
+    raw = mapping_service.get_suggestions(db, user.id, rows)
     suggestions = [
         [ConnectorAssignmentOut(**item) for item in row_items] for row_items in raw
     ]

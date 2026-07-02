@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 from typing import Annotated
+from uuid import uuid4
 
 import jwt
 import pytest
@@ -18,7 +19,7 @@ def _make_token(
     expired: bool = False,
     secret: str = TEST_SECRET,
 ) -> str:
-    payload: dict = {"email": email, "role": role}
+    payload: dict = {"sub": str(uuid4()), "email": email, "role": role}
     if expired:
         payload["exp"] = 1  # Unix epoch 1 → sempre scaduto
     return jwt.encode(payload, secret, algorithm="HS256")
