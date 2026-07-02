@@ -133,6 +133,7 @@ Dati fissi per `E2E__OK`:
 - La gerarchia di eccezioni consente una UX distinta per token scaduto vs. server down.
 - Lo StubAdapter rende i test E2E completamente indipendenti dai backend reali.
 - Zero dipendenze aggiuntive per il client Odoo.
+- **`JiraAdapter` implementato (E8b, 2026-07-02)**: conferma che il pattern si estende a protocolli REST/JSON con Basic Auth senza modifiche al core. Zero dipendenze aggiuntive (`urllib.request` + `json` + `base64` stdlib).
 
 **Negative / trade-off accettati**:
 - `xmlrpc.client` è sincrono: le chiamate Odoo bloccano il thread. Accettabile perché `submit` e le query autocomplete sono invocate in background task FastAPI, non nel thread della request.

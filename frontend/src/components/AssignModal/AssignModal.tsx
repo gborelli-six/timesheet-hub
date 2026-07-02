@@ -296,7 +296,7 @@ function AssignCard({
           </Typography>
           <Autocomplete<AdapterProject>
             options={projects}
-            getOptionLabel={(o) => o.name}
+            getOptionLabel={(o) => (connector?.service === 'jira' ? `${o.id} — ${o.name}` : o.name)}
             isOptionEqualToValue={(o, v) => o.id === v.id}
             filterOptions={(x) => x}
             value={selectedProject}
@@ -309,6 +309,31 @@ function AssignCard({
             noOptionsText={projectQuery ? 'Nessun risultato' : 'Digita per cercare…'}
             size="small"
             data-testid={testId ? `${testId}-project-autocomplete` : undefined}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                {connector?.service === 'jira' ? (
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      sx={{
+                        fontFamily: 'monospace',
+                        fontWeight: 700,
+                        color: 'text.secondary',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {option.id}
+                    </Typography>
+                    <Typography component="span" variant="body2">
+                      {option.name}
+                    </Typography>
+                  </Box>
+                ) : (
+                  option.name
+                )}
+              </li>
+            )}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -342,7 +367,7 @@ function AssignCard({
           </Typography>
           <Autocomplete<AdapterTask>
             options={tasks}
-            getOptionLabel={(o) => o.name}
+            getOptionLabel={(o) => (connector?.service === 'jira' ? `${o.id} — ${o.name}` : o.name)}
             isOptionEqualToValue={(o, v) => o.id === v.id}
             filterOptions={(x) => x}
             value={selectedTask}
@@ -357,6 +382,31 @@ function AssignCard({
             }
             size="small"
             data-testid={testId ? `${testId}-task-autocomplete` : undefined}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                {connector?.service === 'jira' ? (
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      sx={{
+                        fontFamily: 'monospace',
+                        fontWeight: 700,
+                        color: 'text.secondary',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {option.id}
+                    </Typography>
+                    <Typography component="span" variant="body2">
+                      {option.name}
+                    </Typography>
+                  </Box>
+                ) : (
+                  option.name
+                )}
+              </li>
+            )}
             renderInput={(params) => (
               <TextField
                 {...params}
