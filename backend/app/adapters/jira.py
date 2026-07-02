@@ -1,5 +1,6 @@
 import base64
 import json
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -22,6 +23,7 @@ from app.adapters.base import (
 from app.adapters.registry import adapter_registry
 
 _AUTH_CODES = (401, 403)
+_ISSUE_KEY_RE = re.compile(r"^[A-Za-z]+-\d+$")
 
 
 class JiraAdapter(TimesheetAdapter):
@@ -103,7 +105,11 @@ class JiraAdapter(TimesheetAdapter):
         jql = f'project = "{safe_project}"'
         if query:
             safe_q = query.replace('"', '\\"')
-            jql += f' AND text ~ "{safe_q}"'
+            if _ISSUE_KEY_RE.match(query.strip()):
+                # Ricerca esatta per issue key (es. PROJ-42) oltre alla ricerca testuale
+                jql += f' AND (text ~ "{safe_q}" OR issue = "{query.strip().upper()}")'
+            else:
+                jql += f' AND text ~ "{safe_q}"'
         jql += " ORDER BY created DESC"
         params: dict[str, Any] = {
             "jql": jql,

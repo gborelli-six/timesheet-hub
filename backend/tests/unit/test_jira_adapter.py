@@ -211,7 +211,42 @@ def test_get_tasks_with_query():
 
 
 # ---------------------------------------------------------------------------
-# 11. get_tasks — progetto senza issue → lista vuota
+# 11. get_tasks — query che corrisponde a issue key → OR issue = "KEY" nel JQL
+# ---------------------------------------------------------------------------
+
+
+def test_get_tasks_with_issue_key_query():
+    one = {"issues": [_ISSUES_RESP["issues"][0]]}
+    with patch(PATCH_URLOPEN, return_value=_fake_resp(one)) as mock_open:
+        adapter = JiraAdapter()
+        result = adapter.get_tasks("MYPROJ", _config(), query="PROJ-1")
+    assert len(result) == 1
+    url_used = mock_open.call_args[0][0].full_url
+    # Deve contenere sia text~ che issue= per la ricerca per codice
+    import urllib.parse
+
+    decoded = urllib.parse.unquote(url_used)
+    assert "text" in decoded and "issue" in decoded and "PROJ-1" in decoded
+
+
+# ---------------------------------------------------------------------------
+# 12. get_tasks — query testuale (non key) → solo text~ nel JQL
+# ---------------------------------------------------------------------------
+
+
+def test_get_tasks_text_query_no_issue_clause():
+    with patch(PATCH_URLOPEN, return_value=_fake_resp({"issues": []})) as mock_open:
+        adapter = JiraAdapter()
+        adapter.get_tasks("MYPROJ", _config(), query="frontend")
+    url_used = mock_open.call_args[0][0].full_url
+    import urllib.parse
+
+    decoded = urllib.parse.unquote(url_used)
+    assert "text" in decoded
+    assert "issue =" not in decoded
+
+
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 
 
