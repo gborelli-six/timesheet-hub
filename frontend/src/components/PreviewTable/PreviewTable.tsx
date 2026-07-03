@@ -111,7 +111,7 @@ function ConnChips({ assigns, onAssign, entryIndex }: ConnChipsProps) {
                   {meta.letter}
                 </Box>
                 <Typography sx={{ fontSize: '0.6875rem', fontWeight: 700, lineHeight: 1 }}>
-                  {meta.name}
+                  {a.connectorLabel}
                 </Typography>
                 {a.suggested && (
                   <AutoAwesomeIcon

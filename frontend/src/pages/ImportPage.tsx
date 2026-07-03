@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
@@ -20,18 +20,19 @@ import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import { AssignModal } from '../components/AssignModal'
 import { FileUpload } from '../components/FileUpload'
 import PreviewTable from '../components/PreviewTable'
+import { useAuth } from '../hooks/useAuth'
 import { useConnectors } from '../hooks/useConnectors'
 import {
   useMappingSuggestions,
   type SuggestedAssignmentResponse,
 } from '../hooks/useMappingSuggestions'
 import { useSubmitImport } from '../hooks/useSubmitImport'
+import { loadDraft, saveDraft, clearDraft, type ImportStep } from '../lib/importDraft'
 import { normalize } from '../lib/timesheet/normalizer'
 import type { ConnectorAssignment, TimesheetEntry, RowWarning } from '../lib/timesheet/types'
 import { WarningType, DEFAULT_COLUMN_MAPPING } from '../lib/timesheet/types'
 import type { ConnectorOut, ConnectorResult } from '../types'
 
-type ImportStep = 'upload' | 'preview' | 'confirm'
 type ImportPhase = 'form' | 'submitting' | 'result'
 
 const STEPS = [
@@ -185,6 +186,37 @@ function buildSuggestedAssignments(
     return entry
   })
   return { newAssignments, updatedEntries }
+}
+
+// Normalizzazione identica a mapping_service._normalize del backend:
+// trim → collasso spazi interni → lowercase. Garantisce che il match in-page
+// usi la stessa chiave dei suggerimenti da storico.
+function normalizeKey(s: string): string {
+  return s.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+// Deduce le assegnazioni per le righe ancora vuote a partire dalle righe già
+// assegnate nella pagina: match esatto sulla coppia (project, task) normalizzata,
+// clona la lista connettori marcandola suggested: true.
+function computeSimilarFill(
+  currentEntries: TimesheetEntry[],
+  currentAssignments: Record<number, ConnectorAssignment[]>,
+): Record<number, ConnectorAssignment[]> {
+  const byKey: Record<string, ConnectorAssignment[]> = {}
+  currentEntries.forEach((e, i) => {
+    const list = currentAssignments[i]
+    if (!list || list.length === 0 || !e.project) return
+    const key = normalizeKey(e.project) + ' ' + normalizeKey(e.task ?? '')
+    if (!byKey[key]) byKey[key] = list
+  })
+  const add: Record<number, ConnectorAssignment[]> = {}
+  currentEntries.forEach((e, i) => {
+    if ((currentAssignments[i] && currentAssignments[i].length) || !e.project) return
+    const key = normalizeKey(e.project) + ' ' + normalizeKey(e.task ?? '')
+    const src = byKey[key]
+    if (src) add[i] = src.map((a) => ({ ...a, suggested: true }))
+  })
+  return add
 }
 
 // ─── StepConfirm ────────────────────────────────────────────────────────────
@@ -464,9 +496,16 @@ export default function ImportPage() {
   const [modalRow, setModalRow] = useState<number | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
+  const { data: me } = useAuth()
+  const userId = me?.id
   const { data: connectors = [] } = useConnectors()
   const { mutate: fetchSuggestions, isPending: suggestionsLoading } = useMappingSuggestions()
   const { mutate: submitImport } = useSubmitImport()
+
+  // true una volta completato (o saltato) il ripristino della bozza: impedisce
+  // sia un doppio restore sia che il save-effect sovrascriva la bozza con lo
+  // stato vuoto del primo render prima di averla letta.
+  const hydrated = useRef(false)
 
   const stepIndex = step === 'upload' ? 0 : step === 'preview' ? 1 : 2
 
@@ -474,6 +513,39 @@ export default function ImportPage() {
     setStep(STEPS[i].id as ImportStep)
     setMaxReached((m) => Math.max(m, i))
   }
+
+  // Ripristino della bozza da sessionStorage al primo render utile (quando
+  // l'utente è noto). Silenzioso: se c'è lavoro salvato si riapre allo step
+  // corrispondente, altrimenti si parte pulito.
+  useEffect(() => {
+    if (hydrated.current || !userId) return
+    hydrated.current = true
+    const draft = loadDraft(userId)
+    if (!draft || draft.entries.length === 0 || draft.step === 'upload') return
+    setEntries(draft.entries)
+    setWarnings(draft.warnings)
+    setHasFile(true)
+    setStep(draft.step)
+    setMaxReached(draft.step === 'confirm' ? 2 : 1)
+    // assignments è derivato da entries (fonte unica di verità) per evitare drift
+    const restored: Record<number, ConnectorAssignment[]> = {}
+    draft.entries.forEach((e, i) => {
+      if (e.connectorAssignments.length > 0) restored[i] = e.connectorAssignments
+    })
+    setAssignments(restored)
+  }, [userId])
+
+  // Salvataggio automatico della bozza a ogni cambiamento rilevante. Persiste
+  // solo durante la compilazione (phase 'form') e con almeno una entry; negli
+  // altri casi (upload vuoto, submitting, result) rimuove la bozza.
+  useEffect(() => {
+    if (!hydrated.current || !userId) return
+    if (phase === 'form' && step !== 'upload' && entries.length > 0) {
+      saveDraft(userId, { step, entries, warnings, hasFile })
+    } else {
+      clearDraft(userId)
+    }
+  }, [userId, entries, warnings, step, hasFile, phase])
 
   function handleParsed(
     rows: Record<string, unknown>[],
@@ -520,6 +592,7 @@ export default function ImportPage() {
   }
 
   function handleBack() {
+    if (userId) clearDraft(userId)
     setStep('upload')
     setEntries([])
     setWarnings([])
@@ -552,6 +625,7 @@ export default function ImportPage() {
     setPhase('submitting')
     submitImport(entries, {
       onSuccess: (res) => {
+        if (userId) clearDraft(userId)
         setImportResults(res.results)
         setImportId(res.import_id)
         setPhase('result')
@@ -564,6 +638,7 @@ export default function ImportPage() {
   }
 
   function handleReset() {
+    if (userId) clearDraft(userId)
     setStep('upload')
     setPhase('form')
     setMaxReached(0)
@@ -585,6 +660,19 @@ export default function ImportPage() {
 
   const importableRows = Object.values(assignments).filter((a) => a.length > 0).length
   const hasSuggestions = Object.values(assignments).some((list) => list.some((a) => a.suggested))
+
+  const similarFill = useMemo(
+    () => computeSimilarFill(entries, assignments),
+    [entries, assignments],
+  )
+  const fillableCount = Object.keys(similarFill).length
+
+  function handleFillSimilar() {
+    const add = computeSimilarFill(entries, assignments)
+    if (Object.keys(add).length === 0) return
+    setAssignments((prev) => ({ ...prev, ...add }))
+    setEntries((prev) => prev.map((e, i) => (add[i] ? { ...e, connectorAssignments: add[i] } : e)))
+  }
 
   const period = useMemo(() => {
     const dates = entries.map((e) => e.date).filter(Boolean) as string[]
@@ -858,6 +946,44 @@ export default function ImportPage() {
                         modificabili: apri una riga per cambiarle.
                       </Alert>
                     )}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1.5,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.75,
+                          color: 'text.secondary',
+                        }}
+                        data-testid="preview-fill-similar-hint"
+                      >
+                        <AutoAwesomeIcon
+                          fontSize="small"
+                          color={fillableCount > 0 ? 'primary' : 'disabled'}
+                        />
+                        {fillableCount > 0
+                          ? `${fillableCount} righe simili a righe già assegnate possono essere precompilate.`
+                          : 'Assegna almeno una riga per precompilare quelle simili.'}
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<AutoAwesomeIcon />}
+                        onClick={handleFillSimilar}
+                        disabled={fillableCount === 0}
+                        data-testid="preview-btn-fill-similar"
+                      >
+                        Precompila righe simili
+                      </Button>
+                    </Box>
                     <PreviewTable
                       entries={entries}
                       warnings={warnings}

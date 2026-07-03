@@ -10,6 +10,7 @@ POST /_test/seed-import-log — inietta Import + ImportRow per test RBAC (E9a-7)
 
 import re
 from datetime import UTC, date, datetime
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
@@ -155,10 +156,15 @@ def seed_mapping(req: SeedMappingRequest, db: Session = Depends(get_db)) -> dict
     ).first()
 
     if token is None:
+        # L'AAD della cifratura deve combaciare con quello usato in fase di
+        # decrypt (adapters.py) e nel flusso reale (connectors.py): entrambi
+        # usano str(token.id), non la label. Generiamo l'id esplicitamente.
+        connector_id = uuid4()
         secret_enc, nonce, key_version = encrypt_secret(
-            "e2e-stub-token", str(user.id), req.connector_label
+            "e2e-stub-token", str(user.id), str(connector_id)
         )
         token = UserToken(
+            id=connector_id,
             user_id=user.id,
             label=req.connector_label,
             service=service,

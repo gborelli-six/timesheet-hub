@@ -84,6 +84,24 @@ Puoi procedere se:
 
 ---
 
+## Assegnare i connettori alle righe
+
+Nello step **"Verifica e assegna"** ogni riga va associata a uno o più connettori (Odoo, Jira, …) con il relativo progetto e task remoto. Clicca **"+ Assegna"** su una riga per aprire il pannello di assegnazione. Solo le righe con almeno un connettore verranno importate.
+
+Dalla **seconda importazione** in poi le associazioni vengono **pre-compilate automaticamente** in base allo storico delle tue importazioni precedenti (icona ✨ *Suggerito*). Sono sempre modificabili.
+
+### Precompila righe simili
+
+Alla **prima importazione**, o quando compaiono **nuovi progetti/attività** non ancora presenti nello storico, puoi risparmiare tempo con il pulsante **"Precompila righe simili"** (in cima alla tabella):
+
+1. Assegna manualmente **almeno una** riga.
+2. Il testo accanto al pulsante indica quante righe ancora vuote condividono lo **stesso progetto e task** di righe già assegnate.
+3. Clicca **"Precompila righe simili"**: quelle righe ricevono automaticamente gli **stessi connettori** (marcati come *Suggerito*).
+
+Il match è **esatto** su progetto + task (ignorando maiuscole/minuscole e spazi in eccesso): righe con progetto o task diverso non vengono toccate. Puoi sempre rivedere o modificare le assegnazioni precompilate prima di confermare.
+
+---
+
 ## Quando ricaricare il file
 
 Ricarica il file se:
