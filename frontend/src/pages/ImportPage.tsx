@@ -78,8 +78,8 @@ function StepBar({
               >
                 <Box
                   sx={{
-                    width: 28,
-                    height: 28,
+                    width: 30,
+                    height: 30,
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
@@ -92,10 +92,11 @@ function StepBar({
                       ? 'primary.light'
                       : done || active
                         ? 'primary.main'
-                        : 'divider',
+                        : 'grey.300',
                     color: done || active ? '#fff' : 'text.disabled',
                     transition: 'all 0.15s',
                     cursor: clickable ? 'pointer' : 'default',
+                    boxShadow: active ? '0 0 0 4px #dae4f7' : 'none',
                     '&:hover': clickable
                       ? {
                           borderColor: 'primary.main',
@@ -123,8 +124,9 @@ function StepBar({
                 <Box
                   sx={{
                     width: 48,
-                    height: 1,
-                    bgcolor: i < current ? 'primary.main' : 'divider',
+                    height: 2,
+                    borderRadius: 1,
+                    bgcolor: i < current ? 'primary.main' : 'grey.300',
                     mx: 1.5,
                     transition: 'background-color 0.15s',
                   }}
@@ -888,6 +890,8 @@ export default function ImportPage() {
                         borderRadius: 1,
                         bgcolor: 'grey.50',
                         p: '14px 16px',
+                        maxWidth: 620,
+                        mx: 'auto',
                       }}
                     >
                       <Box

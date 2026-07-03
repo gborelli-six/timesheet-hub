@@ -20,6 +20,7 @@ import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import LinkIcon from '@mui/icons-material/Link'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 
 import { useAdapterProjects, useAdapterTasks, useDebounce } from '@/hooks/useAdapterAutocomplete'
@@ -557,7 +558,7 @@ export function AssignModal({
             <CalendarTodayOutlinedIcon sx={{ fontSize: 13 }} />
             <Typography variant="caption">{entry.date ?? '—'}</Typography>
           </Box>
-          <Box sx={{ width: 1, height: 14, bgcolor: 'divider' }} />
+          <Box sx={{ width: '1px', height: 14, bgcolor: 'divider' }} />
           <Typography
             variant="caption"
             fontWeight={700}
@@ -566,7 +567,7 @@ export function AssignModal({
           >
             {entry.project || '— progetto mancante'}
           </Typography>
-          <Box sx={{ width: 1, height: 14, bgcolor: 'divider' }} />
+          <Box sx={{ width: '1px', height: 14, bgcolor: 'divider' }} />
           <Typography
             variant="caption"
             color={entry.task ? 'text.secondary' : 'text.disabled'}
@@ -574,7 +575,7 @@ export function AssignModal({
           >
             {entry.task || '— task mancante'}
           </Typography>
-          <Box sx={{ width: 1, height: 14, bgcolor: 'divider' }} />
+          <Box sx={{ width: '1px', height: 14, bgcolor: 'divider' }} />
           <Typography
             variant="caption"
             fontWeight={700}
@@ -582,6 +583,34 @@ export function AssignModal({
             color={entry.hours != null ? 'text.primary' : 'text.disabled'}
           >
             {entry.hours != null ? `${entry.hours} h` : '— h'}
+          </Typography>
+        </Box>
+
+        {/* Row notes */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 0.875,
+            mt: 1.25,
+            color: 'text.secondary',
+            lineHeight: 1.45,
+          }}
+        >
+          <InfoOutlinedIcon
+            sx={{ fontSize: 13, color: 'text.disabled', mt: '2px', flexShrink: 0 }}
+          />
+          <Typography variant="caption" sx={{ lineHeight: 1.45 }}>
+            <Box component="span" fontWeight={700} color="text.primary" sx={{ mr: 0.75 }}>
+              Note
+            </Box>
+            {entry.notes ? (
+              entry.notes
+            ) : (
+              <Box component="em" sx={{ color: 'text.disabled' }}>
+                — nessuna nota
+              </Box>
+            )}
           </Typography>
         </Box>
 
