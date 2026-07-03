@@ -344,7 +344,7 @@ export default function LogPage() {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-                        {imp.connectors.map((c) => (
+                        {(imp.connectors ?? []).map((c) => (
                           <ConnectorTag key={c.label} service={c.service} label={c.label} />
                         ))}
                       </Box>
