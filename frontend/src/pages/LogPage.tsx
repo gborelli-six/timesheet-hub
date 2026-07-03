@@ -20,15 +20,23 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 
 import { StatusBadge } from '@/components/ui'
-import { ServiceTag } from '@/components/log/ServiceTag'
-import { ALL_SERVICES } from '@/components/connectors/serviceMeta'
+import { ConnectorTag } from '@/components/log/ConnectorTag'
+import { ALL_SERVICES, SERVICE_META } from '@/components/connectors/serviceMeta'
 import { useImports } from '@/hooks/useImports'
+import { useConnectors } from '@/hooks/useConnectors'
 import { formatLogDate, formatPeriodRange, statusBadge } from '@/lib/importLog'
-import type { ImportFilters, ImportStatus, ServiceType } from '@/types'
+import type { ImportFilters, ImportStatus } from '@/types'
 
-const EMPTY_FILTERS: ImportFilters = { period_from: '', period_to: '', service: '', status: '' }
+const EMPTY_FILTERS: ImportFilters = {
+  period_from: '',
+  period_to: '',
+  service: '',
+  status: '',
+  connector_label: '',
+}
 
 const STATUS_OPTIONS: { value: ImportStatus; label: string }[] = [
+  { value: 'in_progress', label: 'In corso' },
   { value: 'success', label: 'Successo' },
   { value: 'partial', label: 'Parziale' },
   { value: 'failed', label: 'Fallito' },
@@ -95,8 +103,40 @@ export default function LogPage() {
 
   const { data: imports, isLoading, isError, refetch } = useImports(filters)
 
+  const { data: allConnectors = [] } = useConnectors()
+
+  const connectorOptions = filters.service
+    ? allConnectors.filter((c) => c.service === filters.service)
+    : allConnectors
+
+  const handleServiceChange = (svc: string) => {
+    const currentConn = allConnectors.find((c) => c.label === filters.connector_label)
+    const labelStillValid = !svc || currentConn?.service === svc
+    setFilters((prev) => ({
+      ...prev,
+      service: svc as ImportFilters['service'],
+      connector_label: labelStillValid ? prev.connector_label : '',
+    }))
+  }
+
+  const handleConnectorChange = (label: string) => {
+    const conn = allConnectors.find((c) => c.label === label)
+    setFilters((prev) => ({
+      ...prev,
+      connector_label: label,
+      service: label ? (conn?.service ?? prev.service ?? '') : (prev.service ?? ''),
+    }))
+  }
+
   const hasFilter = useMemo(
-    () => Boolean(filters.period_from || filters.period_to || filters.service || filters.status),
+    () =>
+      Boolean(
+        filters.period_from ||
+        filters.period_to ||
+        filters.service ||
+        filters.status ||
+        filters.connector_label,
+      ),
     [filters],
   )
   const reset = () => setFilters(EMPTY_FILTERS)
@@ -163,17 +203,34 @@ export default function LogPage() {
         />
         <TextField
           select
-          label="Backend"
+          label="Tipo"
           size="small"
           value={filters.service ?? ''}
-          onChange={(e) => setField('service', e.target.value as ServiceType | '')}
-          sx={{ minWidth: 160 }}
+          onChange={(e) => handleServiceChange(e.target.value)}
+          sx={{ minWidth: 140 }}
           inputProps={{ 'data-testid': 'filter-service' }}
         >
           <MenuItem value="">Tutti</MenuItem>
           {ALL_SERVICES.map((s) => (
             <MenuItem key={s} value={s}>
-              {s.charAt(0).toUpperCase() + s.slice(1)}
+              {SERVICE_META[s].name}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label="Connettore"
+          size="small"
+          value={filters.connector_label ?? ''}
+          onChange={(e) => handleConnectorChange(e.target.value)}
+          sx={{ minWidth: 180 }}
+          inputProps={{ 'data-testid': 'filter-connector' }}
+          disabled={connectorOptions.length === 0}
+        >
+          <MenuItem value="">Tutti</MenuItem>
+          {connectorOptions.map((c) => (
+            <MenuItem key={c.label} value={c.label}>
+              {c.label}
             </MenuItem>
           ))}
         </TextField>
@@ -236,7 +293,7 @@ export default function LogPage() {
           title={hasFilter ? 'Nessuna importazione trovata' : 'Nessuna importazione'}
           subtitle={
             hasFilter
-              ? 'Nessun risultato per i filtri selezionati. Prova ad ampliare periodo, backend o esito.'
+              ? 'Nessun risultato per i filtri selezionati. Prova ad ampliare periodo, tipo, connettore o esito.'
               : 'Non hai ancora effettuato importazioni. Carica un timesheet per iniziare.'
           }
           action={
@@ -257,7 +314,7 @@ export default function LogPage() {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ width: 160 }}>Data</TableCell>
-                <TableCell>Backend</TableCell>
+                <TableCell>Connettori</TableCell>
                 <TableCell align="right" sx={{ width: 120 }}>
                   OK / Fail
                 </TableCell>
@@ -287,8 +344,8 @@ export default function LogPage() {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-                        {imp.services.map((s) => (
-                          <ServiceTag key={s} service={s} />
+                        {imp.connectors.map((c) => (
+                          <ConnectorTag key={c.label} service={c.service} label={c.label} />
                         ))}
                       </Box>
                     </TableCell>

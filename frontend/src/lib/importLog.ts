@@ -3,6 +3,7 @@ import type { ImportStatus } from '@/types'
 
 // Mapping stato importazione → props di StatusBadge (riuso del componente ui).
 const STATUS_BADGE: Record<ImportStatus, { status: StatusType; label: string }> = {
+  in_progress: { status: 'info', label: 'In corso' },
   success: { status: 'success', label: 'Successo' },
   partial: { status: 'warning', label: 'Parziale' },
   failed: { status: 'error', label: 'Fallito' },
