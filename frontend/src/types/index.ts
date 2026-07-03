@@ -28,7 +28,7 @@ export interface ConnectorResult {
 
 // ─── Log importazioni (E9a) ──────────────────────────────────────────────────
 
-export type ImportStatus = 'success' | 'partial' | 'failed'
+export type ImportStatus = 'in_progress' | 'success' | 'partial' | 'failed'
 export type ImportRowStatus = 'success' | 'failed'
 
 export interface ImportRowOut {

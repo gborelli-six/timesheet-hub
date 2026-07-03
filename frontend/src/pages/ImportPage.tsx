@@ -26,14 +26,15 @@ import {
   useMappingSuggestions,
   type SuggestedAssignmentResponse,
 } from '../hooks/useMappingSuggestions'
+import { useImportPolling } from '../hooks/useImports'
 import { useSubmitImport } from '../hooks/useSubmitImport'
 import { loadDraft, saveDraft, clearDraft, type ImportStep } from '../lib/importDraft'
 import { normalize } from '../lib/timesheet/normalizer'
 import type { ConnectorAssignment, TimesheetEntry, RowWarning } from '../lib/timesheet/types'
 import { WarningType, DEFAULT_COLUMN_MAPPING } from '../lib/timesheet/types'
-import type { ConnectorOut, ConnectorResult } from '../types'
+import type { ConnectorOut, ConnectorResult, ImportLogDetail } from '../types'
 
-type ImportPhase = 'form' | 'submitting' | 'result'
+type ImportPhase = 'form' | 'submitting' | 'polling' | 'result'
 
 const STEPS = [
   { id: 'upload', label: 'Upload' },
@@ -154,6 +155,30 @@ function extractSubmitError(err: unknown): string {
     if (raw.length <= 200) return raw
   }
   return fallback
+}
+
+function deriveResultsFromDetail(detail: ImportLogDetail): ConnectorResult[] {
+  const grouped = new Map<string, ConnectorResult>()
+  for (const row of detail.rows) {
+    if (!grouped.has(row.connector_label)) {
+      grouped.set(row.connector_label, {
+        connector_label: row.connector_label,
+        success_count: 0,
+        error_count: 0,
+        errors: [],
+      })
+    }
+    const r = grouped.get(row.connector_label)!
+    if (row.status === 'success') {
+      r.success_count++
+    } else {
+      r.error_count++
+      if (row.error_message) {
+        r.errors.push({ row: row.row_number, message: row.error_message })
+      }
+    }
+  }
+  return Array.from(grouped.values())
 }
 
 function buildSuggestedAssignments(
@@ -501,6 +526,7 @@ export default function ImportPage() {
   const { data: connectors = [] } = useConnectors()
   const { mutate: fetchSuggestions, isPending: suggestionsLoading } = useMappingSuggestions()
   const { mutate: submitImport } = useSubmitImport()
+  const { data: pollingDetail } = useImportPolling(importId, phase === 'polling')
 
   // true una volta completato (o saltato) il ripristino della bozza: impedisce
   // sia un doppio restore sia che il save-effect sovrascriva la bozza con lo
@@ -534,6 +560,14 @@ export default function ImportPage() {
     })
     setAssignments(restored)
   }, [userId])
+
+  // Transizione da polling a result quando il backend ha terminato.
+  useEffect(() => {
+    if (phase !== 'polling' || !pollingDetail) return
+    if (pollingDetail.status === 'in_progress') return
+    setImportResults(deriveResultsFromDetail(pollingDetail))
+    setPhase('result')
+  }, [phase, pollingDetail])
 
   // Salvataggio automatico della bozza a ogni cambiamento rilevante. Persiste
   // solo durante la compilazione (phase 'form') e con almeno una entry; negli
@@ -626,9 +660,8 @@ export default function ImportPage() {
     submitImport(entries, {
       onSuccess: (res) => {
         if (userId) clearDraft(userId)
-        setImportResults(res.results)
         setImportId(res.import_id)
-        setPhase('result')
+        setPhase('polling')
       },
       onError: (err) => {
         setSubmitError(extractSubmitError(err))
@@ -763,10 +796,12 @@ export default function ImportPage() {
                     letterSpacing: '0.06em',
                   }}
                 >
-                  {phase === 'submitting' ? 'Invio in corso' : panelStepLabel}
+                  {phase === 'submitting' || phase === 'polling'
+                    ? 'Invio in corso'
+                    : panelStepLabel}
                 </Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, mb: 0.5 }}>
-                  {phase === 'submitting' ? 'Importazione' : panelHeadTitle}
+                  {phase === 'submitting' || phase === 'polling' ? 'Importazione' : panelHeadTitle}
                 </Typography>
                 {phase === 'form' && (
                   <Typography
@@ -851,6 +886,28 @@ export default function ImportPage() {
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {distinctConnectors.join(' · ')}
+                </Typography>
+              </Box>
+            )}
+
+            {/* Phase: polling */}
+            {phase === 'polling' && (
+              <Box
+                data-testid="polling-screen"
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 3,
+                  py: 6,
+                }}
+              >
+                <CircularProgress size={48} />
+                <Typography variant="h6" color="text.secondary">
+                  Importazione in corso…
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Stiamo inviando i dati ai connettori selezionati.
                 </Typography>
               </Box>
             )}

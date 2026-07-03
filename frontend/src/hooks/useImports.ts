@@ -31,3 +31,16 @@ export function useImportDetail(id: string | null) {
     enabled: !!id,
   })
 }
+
+export function useImportPolling(id: string | null, enabled: boolean) {
+  return useQuery<ImportLogDetail>({
+    queryKey: [IMPORTS_KEY, 'polling', id],
+    queryFn: () => apiClient.get(`/api/me/imports/${id}`) as Promise<ImportLogDetail>,
+    enabled: !!id && enabled,
+    refetchInterval: (query) => {
+      const data = query.state.data
+      if (!data) return 2000
+      return data.status === 'in_progress' ? 2000 : false
+    },
+  })
+}

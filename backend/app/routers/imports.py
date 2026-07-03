@@ -1,35 +1,26 @@
+import asyncio
+import logging
 from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session, selectinload
 
-from app.adapters.base import (
-    AdapterAuthError,
-    AdapterConnectionError,
-)
-from app.adapters.base import (
-    ConnectorAssignment as AdapterAssignment,
-)
-from app.adapters.base import (
-    TimesheetEntry as AdapterEntry,
-)
+from app.adapters.base import AdapterAuthError, AdapterConnectionError
+from app.adapters.base import ConnectorAssignment as AdapterAssignment
+from app.adapters.base import TimesheetEntry as AdapterEntry
 from app.adapters.registry import adapter_registry
 from app.core.rbac import CurrentUser, UserRole, require_role
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.models.import_log import Import, ImportRow, ImportRowStatus, ImportStatus
 from app.models.user_token import UserTokenService
-from app.routers.adapters import (
-    _build_adapter_config,
-    _get_token_or_404,
-    _map_adapter_error,
-)
+from app.routers.adapters import _build_adapter_config, _get_token_or_404
 from app.services import mapping_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/me", tags=["me-imports"])
-
 _ALL_ROLES = [UserRole.employee, UserRole.hr, UserRole.admin]
 
 
@@ -78,9 +69,9 @@ class ConnectorResultOut(BaseModel):
 
 class ImportResponse(BaseModel):
     # `import_id` identifica il log persistito, così il wizard può linkare al
-    # dettaglio. `results` resta invariato per non rompere il contratto E8a.
+    # dettaglio. `results` è vuoto al momento del ritorno asincrono.
     import_id: UUID
-    results: list[ConnectorResultOut]
+    results: list[ConnectorResultOut] = []
 
 
 class ImportRowOut(BaseModel):
@@ -160,108 +151,74 @@ def _derive_period(entries: list[EntryIn]) -> tuple[date | None, date | None]:
     return min(parsed), max(parsed)
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
-
-
-@router.post("/imports", response_model=ImportResponse)
-def submit_imports(
-    body: ImportRequest,
-    user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
-    db: Session = Depends(get_db),
-) -> ImportResponse:
-    user_id = user.id
-    entries = body.entries
-
-    # 1. Raccogli i label distinti presenti nelle assignments
-    distinct_labels: list[str] = list(
-        {a.connector_label for entry in entries for a in entry.connector_assignments}
-    )
-
-    results: list[ConnectorResultOut] = []
-    # Per ogni label: service usato + mappa row_number(1-based) → messaggio d'errore.
-    label_service: dict[str, UserTokenService] = {}
-    label_failures: dict[str, dict[int, str]] = {}
-
-    for label in distinct_labels:
-        # 2a. Recupera token e config (404 se non trovato)
-        token = _get_token_or_404(db, user_id, label)
-        config = _build_adapter_config(token, user_id)
-        label_service[label] = token.service
-
-        # 2b. Filtra le entries che hanno almeno un assignment per questo label.
-        #     original_rows mappa la posizione in `filtered` all'indice (1-based)
-        #     della entry nel foglio, così gli errori restituiti puntano alla riga
-        #     vista dall'utente e non alla posizione nel sottoinsieme filtrato.
-        filtered: list[AdapterEntry] = []
-        original_rows: list[int] = []
-        for idx, entry in enumerate(entries):
-            matching = [
-                a for a in entry.connector_assignments if a.connector_label == label
-            ]
-            if not matching:
-                continue
-            # Prendi solo il primo assignment per questo label (uno per label per entry)
-            a = matching[0]
-            original_rows.append(idx + 1)
-            filtered.append(
-                AdapterEntry(
-                    date=entry.date,
-                    hours=entry.hours,
-                    note=entry.notes,
-                    connector_assignments=[
-                        AdapterAssignment(
-                            connector_id=label,
-                            project_id=a.remote_project_id or "",
-                            task_id=a.remote_task_id or "",
-                        )
-                    ],
-                )
-            )
-
-        # 2c. Instanzia l'adapter e chiama submit. Un errore di auth/connessione
-        #     interrompe l'intera richiesta (409/502) PRIMA di qualsiasi commit:
-        #     nessun log viene persistito (import atomico).
-        try:
-            adapter_cls = adapter_registry.get(config.service)
-            import_result = adapter_cls().submit(filtered, config)
-        except (AdapterAuthError, AdapterConnectionError) as exc:
-            raise _map_adapter_error(exc) from exc
-
-        label_failures[label] = {
-            original_rows[e.row]: e.message for e in import_result.errors
-        }
-        results.append(
-            ConnectorResultOut(
-                connector_label=label,
-                success_count=import_result.success_count,
-                error_count=import_result.error_count,
-                errors=[
-                    RowErrorOut(row=original_rows[e.row], message=e.message)
-                    for e in import_result.errors
+def _filter_entries_for_label(
+    entries: list[EntryIn], label: str
+) -> tuple[list[AdapterEntry], list[int]]:
+    """Ritorna (filtered_entries, original_row_numbers_1based) per il label dato."""
+    filtered: list[AdapterEntry] = []
+    original_rows: list[int] = []
+    for idx, entry in enumerate(entries):
+        matching = [
+            a for a in entry.connector_assignments if a.connector_label == label
+        ]
+        if not matching:
+            continue
+        a = matching[0]
+        original_rows.append(idx + 1)
+        filtered.append(
+            AdapterEntry(
+                date=entry.date,
+                hours=entry.hours,
+                note=entry.notes,
+                connector_assignments=[
+                    AdapterAssignment(
+                        connector_id=label,
+                        project_id=a.remote_project_id or "",
+                        task_id=a.remote_task_id or "",
+                    )
                 ],
             )
         )
+    return filtered, original_rows
 
-    # 3. Costruisci il log: una ImportRow per ogni assignment inviato (serve al
-    #    dettaglio), ma i conteggi dell'header sono per RIGA EXCEL, non per
-    #    connettore. Una riga con più connettori conta 1: è "fallita" se almeno
-    #    un connettore ha dato errore.
+
+def _persist_import_results(
+    db: Session,
+    import_id: UUID,
+    user_id: UUID,
+    entries: list[EntryIn],
+    outcomes: list,
+) -> None:
+    """Costruisce le ImportRow dagli outcomes, aggiorna l'Import e fa commit."""
+    label_service: dict[str, UserTokenService] = {}
+    label_failures: dict[str, dict[int, str]] = {}
+
+    for label, original_rows, _config, service, import_result, exc in outcomes:
+        label_service[label] = service
+        if import_result is not None:
+            label_failures[label] = {
+                original_rows[e.row]: e.message for e in import_result.errors
+            }
+        else:
+            # Errore di adapter: tutte le righe di questo label fallite.
+            err_msg = str(exc) if exc is not None else "Errore sconosciuto"
+            label_failures[label] = {row_num: err_msg for row_num in original_rows}
+
     import_rows: list[ImportRow] = []
     row_failed: dict[int, bool] = {}
     for idx, entry in enumerate(entries):
         row_number = idx + 1
         for a in entry.connector_assignments:
-            failures = label_failures.get(a.connector_label, {})
+            label = a.connector_label
+            failures = label_failures.get(label, {})
             error_message = failures.get(row_number)
             is_failed = row_number in failures
             row_failed[row_number] = row_failed.get(row_number, False) or is_failed
             import_rows.append(
                 ImportRow(
                     row_number=row_number,
-                    connector_label=a.connector_label,
-                    service=label_service[a.connector_label],
+                    connector_label=label,
+                    service=label_service[label],
                     excel_project=entry.project,
                     excel_task=entry.task,
                     remote_project_id=a.remote_project_id,
@@ -280,10 +237,6 @@ def submit_imports(
     failed_rows = sum(1 for failed in row_failed.values() if failed)
     success_rows = total_rows - failed_rows
 
-    # Badge derivato dagli stessi conteggi PER RIGA, così esito e numeri sono
-    # sempre coerenti: "success" se nessuna riga è fallita, "failed" se nessuna
-    # è passata, "partial" altrimenti. Una riga mista (alcuni connettori KO)
-    # conta come fallita qui, ma nel dettaglio resta visibile come tale.
     if failed_rows == 0:
         overall_status = ImportStatus.success
     elif success_rows == 0:
@@ -291,21 +244,15 @@ def submit_imports(
     else:
         overall_status = ImportStatus.partial
 
-    period_start, period_end = _derive_period(entries)
-    import_obj = Import(
-        employee_id=user_id,
-        operator_id=None,  # self-import; l'import per conto terzi è E8b/HR
-        status=overall_status,
-        period_start=period_start,
-        period_end=period_end,
-        total_rows=total_rows,
-        success_rows=success_rows,
-        failed_rows=failed_rows,
-        rows=import_rows,
-    )
-    db.add(import_obj)
+    imp = db.get(Import, import_id)
+    if imp is not None:
+        imp.status = overall_status
+        imp.total_rows = total_rows
+        imp.success_rows = success_rows
+        imp.failed_rows = failed_rows
+        imp.rows = import_rows
+        db.add(imp)
 
-    # 4. Upsert mappature riga↔connettore (fa il commit finale della transazione).
     assignments_list: list[dict] = [
         {
             "excel_project": entry.project,
@@ -320,9 +267,110 @@ def submit_imports(
         for a in entry.connector_assignments
     ]
     mapping_service.upsert_row_mappings(db, user_id, assignments_list)
+    db.commit()
+
+
+def _mark_import_failed(import_id: UUID) -> None:
+    with SessionLocal() as db:
+        imp = db.get(Import, import_id)
+        if imp is not None:
+            imp.status = ImportStatus.failed
+            db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Background worker
+# ---------------------------------------------------------------------------
+
+
+async def import_worker(queue: asyncio.Queue) -> None:
+    while True:
+        job = await queue.get()
+        try:
+            await _run_import_job(job)
+        except Exception:
+            logger.exception(
+                "Errore nel worker import per import_id=%s", job.get("import_id")
+            )
+            _mark_import_failed(job["import_id"])
+        finally:
+            queue.task_done()
+
+
+async def _run_import_job(job: dict) -> None:
+    import_id: UUID = job["import_id"]
+    entries: list[EntryIn] = job["entries"]
+    label_configs: list[tuple] = job["label_configs"]
+    user_id: UUID = job["user_id"]
+
+    async def call_one(label, filtered, original_rows, config, service):
+        try:
+            adapter_cls = adapter_registry.get(config.service)
+            result = await asyncio.to_thread(adapter_cls().submit, filtered, config)
+            return label, original_rows, config, service, result, None
+        except (AdapterAuthError, AdapterConnectionError) as exc:
+            return label, original_rows, config, service, None, exc
+
+    outcomes = await asyncio.gather(*[call_one(*lc) for lc in label_configs])
+
+    with SessionLocal() as db:
+        _persist_import_results(db, import_id, user_id, entries, list(outcomes))
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/imports", response_model=ImportResponse)
+async def submit_imports(
+    body: ImportRequest,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
+    db: Session = Depends(get_db),
+) -> ImportResponse:
+    entries = body.entries
+
+    distinct_labels = list(
+        {a.connector_label for entry in entries for a in entry.connector_assignments}
+    )
+
+    # Validazione early: se un token manca → 404 prima di qualsiasi commit
+    label_configs = []
+    for label in distinct_labels:
+        token = _get_token_or_404(db, user.id, label)
+        config = _build_adapter_config(token, user.id)
+        filtered, original_rows = _filter_entries_for_label(entries, label)
+        label_configs.append((label, filtered, original_rows, config, token.service))
+
+    period_start, period_end = _derive_period(entries)
+    total_rows = len(
+        {idx + 1 for idx, e in enumerate(entries) if e.connector_assignments}
+    )
+
+    import_obj = Import(
+        employee_id=user.id,
+        operator_id=None,
+        status=ImportStatus.in_progress,
+        period_start=period_start,
+        period_end=period_end,
+        total_rows=total_rows,
+        success_rows=0,
+        failed_rows=0,
+    )
+    db.add(import_obj)
+    db.commit()
     db.refresh(import_obj)
 
-    return ImportResponse(import_id=import_obj.id, results=results)
+    job = {
+        "import_id": import_obj.id,
+        "user_id": user.id,
+        "entries": entries,
+        "label_configs": label_configs,
+    }
+    await request.app.state.import_queue.put(job)
+
+    return ImportResponse(import_id=import_obj.id, results=[])
 
 
 @router.get("/imports", response_model=list[ImportLogSummary])

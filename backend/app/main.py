@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -5,6 +6,7 @@ from fastapi import FastAPI
 
 from app.core.config import settings
 from app.routers import adapters, auth, connectors, health, imports, mappings, users
+from app.routers.imports import import_worker
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,16 @@ async def lifespan(app: FastAPI):
             "(/api/_test/*). Atteso solo in CI/local/test.",
             settings.environment,
         )
+    queue: asyncio.Queue = asyncio.Queue()
+    app.state.import_queue = queue
+    workers = [
+        asyncio.create_task(import_worker(queue))
+        for _ in range(settings.import_workers)
+    ]
     yield
+    await queue.join()
+    for w in workers:
+        w.cancel()
 
 
 app = FastAPI(title="Timesheet Hub API", version="0.1.0", lifespan=lifespan)

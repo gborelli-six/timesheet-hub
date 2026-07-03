@@ -31,8 +31,8 @@ Timesheet Hub è uno strumento interno per centralizzare l'importazione mensile 
 3. L'applicazione mostra un'anteprima dei dati parsati: dipendente, periodo, righe per progetto e task con le ore.
 4. Per **ciascuna riga** il dipendente assegna uno o più connettori (inserimento simultaneo su più sistemi, es. Odoo + Jira) e, per ogni connettore scelto, seleziona il **progetto** e il **task** del sistema remoto tramite **autocomplete**. Dalla **seconda importazione** in poi queste associazioni sono **pre-suggerite** in base alle importazioni precedenti e restano sempre modificabili.
 5. Conferma l'importazione.
-6. L'applicazione invia ogni riga ai connettori assegnati tramite i rispettivi adapter, e memorizza le associazioni per i suggerimenti futuri.
-7. Viene mostrato il risultato per ciascun backend: successo, errori parziali o fallimento.
+6. L'applicazione registra immediatamente il record di importazione con stato `in_progress` e avvia l'elaborazione in background; la risposta HTTP arriva in meno di un secondo. Il wizard mostra un indicatore di avanzamento (polling su `GET /api/me/imports/{id}`) finché l'elaborazione non è completata.
+7. I connettori vengono chiamati tutti in parallelo. Al termine viene mostrato il risultato per ciascun backend: successo, errori parziali o fallimento. Le associazioni riga ↔ connettore vengono memorizzate per i suggerimenti futuri.
 8. Il log dell'importazione viene salvato e consultabile in seguito.
 
 > Dettaglio del modello dati, dell'algoritmo di suggerimento e dei contratti API in [`007-multi-connector-row-mapping.md`](007-multi-connector-row-mapping.md).
@@ -177,7 +177,10 @@ Ogni importazione viene persistita al momento del submit (`POST /api/me/imports`
 - `id` — UUID PK
 - `employee_id` — UUID FK → `users.id` (dipendente di riferimento)
 - `operator_id` — UUID FK → `users.id` nullable (NULL per self-import; valorizzato da E8b/HR)
-- `status` — `success` | `partial` | `failed` (derivato dai conteggi)
+- `status` — `in_progress` | `success` | `partial` | `failed`
+  - `in_progress`: elaborazione avviata in background, non ancora completata
+  - `success` / `partial` / `failed`: derivati dai conteggi al termine dell'elaborazione
+  - Nota: alla submit il record viene creato con `status=in_progress` e aggiornato a `success/partial/failed` al termine del worker background
 - `period_start` / `period_end` — date derivate dalle entries importate
 - `total_rows` / `success_rows` / `failed_rows` — conteggi aggregati
 - `created_at` / `updated_at` — timestamp (TimestampMixin)
@@ -191,6 +194,7 @@ Ogni importazione viene persistita al momento del submit (`POST /api/me/imports`
 - `hours`, `status` (`success`|`failed`), `error_message` nullable
 
 ### Endpoint
+- `POST /api/me/imports` — avvia un'importazione; ritorna immediatamente `{import_id}` con `status=in_progress` senza attendere il completamento; il client esegue polling su `GET /api/me/imports/{id}` per monitorare lo stato
 - `GET /api/me/imports` — lista proprie importazioni, filtri opzionali `period_from/to`, `service`, `status`; ordinamento `created_at` DESC
 - `GET /api/me/imports/{id}` — dettaglio con righe; 404 se non proprio (nessun leakage cross-utente)
 

@@ -19,6 +19,7 @@ from app.models.user_token import UserTokenService
 
 
 class ImportStatus(StrEnum):
+    in_progress = "in_progress"
     success = "success"
     partial = "partial"
     failed = "failed"
