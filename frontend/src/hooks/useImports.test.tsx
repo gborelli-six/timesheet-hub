@@ -32,6 +32,10 @@ const SUMMARY: ImportLogSummary = {
   success_rows: 3,
   failed_rows: 2,
   services: ['jira', 'odoo'],
+  connectors: [
+    { service: 'jira', label: 'Jira' },
+    { service: 'odoo', label: 'Odoo' },
+  ],
   created_at: '2026-05-28T16:42:00',
 }
 
