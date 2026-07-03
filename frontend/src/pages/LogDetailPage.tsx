@@ -231,7 +231,7 @@ export default function LogDetailPage() {
         </MetaCard>
         <MetaCard
           label="Righe fallite"
-          sub={imp.services.map((s) => SERVICE_META[s].name).join(' · ')}
+          sub={(imp.services ?? []).map((s) => SERVICE_META[s].name).join(' · ')}
         >
           <Box
             component="span"
