@@ -16,6 +16,10 @@ vi.mock('@/hooks/useImports', () => ({
   useImports: vi.fn(),
 }))
 
+vi.mock('@/hooks/useConnectors', () => ({
+  useConnectors: vi.fn().mockReturnValue({ data: [], isLoading: false }),
+}))
+
 const mockUseImports = vi.mocked(useImports)
 
 function summary(overrides: Partial<ImportLogSummary> = {}): ImportLogSummary {
@@ -28,6 +32,7 @@ function summary(overrides: Partial<ImportLogSummary> = {}): ImportLogSummary {
     success_rows: 3,
     failed_rows: 2,
     services: ['jira', 'odoo'],
+    connectors: [],
     created_at: '2026-05-28T16:42:00',
     ...overrides,
   }

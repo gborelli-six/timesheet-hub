@@ -67,6 +67,11 @@ class ConnectorResultOut(BaseModel):
     errors: list[RowErrorOut] = []
 
 
+class ConnectorRef(BaseModel):
+    service: str
+    label: str
+
+
 class ImportResponse(BaseModel):
     # `import_id` identifica il log persistito, così il wizard può linkare al
     # dettaglio. `results` è vuoto al momento del ritorno asincrono.
@@ -101,6 +106,7 @@ class ImportLogSummary(BaseModel):
     success_rows: int
     failed_rows: int
     services: list[str]
+    connectors: list[ConnectorRef]
     created_at: datetime
 
 
@@ -117,6 +123,19 @@ def _distinct_services(imp: Import) -> list[str]:
     return sorted({row.service.value for row in imp.rows})
 
 
+def _distinct_connectors(imp: Import) -> list[ConnectorRef]:
+    seen: set[tuple] = set()
+    result = []
+    for row in imp.rows:
+        key = (row.service.value, row.connector_label)
+        if key not in seen:
+            seen.add(key)
+            result.append(
+                ConnectorRef(service=row.service.value, label=row.connector_label)
+            )
+    return sorted(result, key=lambda x: (x.service, x.label))
+
+
 def _to_summary(imp: Import) -> ImportLogSummary:
     return ImportLogSummary(
         id=imp.id,
@@ -127,6 +146,7 @@ def _to_summary(imp: Import) -> ImportLogSummary:
         success_rows=imp.success_rows,
         failed_rows=imp.failed_rows,
         services=_distinct_services(imp),
+        connectors=_distinct_connectors(imp),
         created_at=imp.created_at,
     )
 
@@ -274,7 +294,11 @@ def _mark_import_failed(import_id: UUID) -> None:
     with SessionLocal() as db:
         imp = db.get(Import, import_id)
         if imp is not None:
+            # Nessuna riga persistita in questo path (errore imprevisto): allinea
+            # i conteggi allo status così l'header non mostra "0/0" con badge Fallito.
             imp.status = ImportStatus.failed
+            imp.failed_rows = imp.total_rows
+            imp.success_rows = 0
             db.commit()
 
 
@@ -380,6 +404,7 @@ def list_imports(
     period_from: date | None = Query(default=None),
     period_to: date | None = Query(default=None),
     service: UserTokenService | None = Query(default=None),
+    connector_label: str | None = Query(default=None),
     status: ImportStatus | None = Query(default=None),
 ) -> list[ImportLogSummary]:
     # Filtra SEMPRE sui log del richiedente: la vista di tutti i log è E9b.
@@ -400,6 +425,14 @@ def list_imports(
         q = q.filter(
             Import.id.in_(
                 db.query(ImportRow.import_id).filter(ImportRow.service == service)
+            )
+        )
+    if connector_label is not None:
+        q = q.filter(
+            Import.id.in_(
+                db.query(ImportRow.import_id).filter(
+                    ImportRow.connector_label == connector_label
+                )
             )
         )
     imports = q.order_by(Import.created_at.desc()).all()

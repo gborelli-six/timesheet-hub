@@ -21,7 +21,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 
 import { StatusBadge } from '@/components/ui'
-import { ServiceTag } from '@/components/log/ServiceTag'
+import { ConnectorTag } from '@/components/log/ConnectorTag'
 import { SERVICE_META } from '@/components/connectors/serviceMeta'
 import { useImportDetail } from '@/hooks/useImports'
 import { formatLogDateTime, formatPeriodRange, statusBadge } from '@/lib/importLog'
@@ -330,7 +330,7 @@ export default function LogDetailPage() {
                         <Box
                           sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
                         >
-                          <ServiceTag service={b.service} />
+                          <ConnectorTag service={b.service} label={b.connector_label} />
                           <Box
                             component="span"
                             sx={{

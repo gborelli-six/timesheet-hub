@@ -56,6 +56,7 @@ export interface ImportLogSummary {
   success_rows: number
   failed_rows: number
   services: ServiceType[]
+  connectors: { service: ServiceType; label: string }[]
   created_at: string
 }
 
@@ -68,6 +69,7 @@ export interface ImportFilters {
   period_to?: string
   service?: ServiceType | ''
   status?: ImportStatus | ''
+  connector_label?: string
 }
 
 // Response completa del submit: prima si scartava import_id, ora serve per
