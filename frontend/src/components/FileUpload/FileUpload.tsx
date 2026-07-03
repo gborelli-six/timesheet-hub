@@ -9,7 +9,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import TaskOutlinedIcon from '@mui/icons-material/TaskOutlined'
-import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
+import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 
 interface FileUploadProps {
@@ -155,6 +155,8 @@ export default function FileUpload({ onParsed, onError }: FileUploadProps) {
           gap: 1.5,
           minHeight: 200,
           bgcolor: 'primary.50',
+          maxWidth: 620,
+          mx: 'auto',
         }}
       >
         <CircularProgress size={40} />
@@ -170,7 +172,7 @@ export default function FileUpload({ onParsed, onError }: FileUploadProps) {
 
   if (state === 'success' && selectedFile) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxWidth: 620, mx: 'auto' }}>
         <Box
           sx={{
             display: 'flex',
@@ -224,7 +226,7 @@ export default function FileUpload({ onParsed, onError }: FileUploadProps) {
   const isError = state === 'error'
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, maxWidth: 620, mx: 'auto' }}>
       <Box
         sx={{
           border: '2px dashed',
@@ -259,7 +261,7 @@ export default function FileUpload({ onParsed, onError }: FileUploadProps) {
           onChange={onInputChange}
           data-testid="file-upload-input"
         />
-        <UploadFileOutlinedIcon
+        <FileUploadOutlinedIcon
           sx={{ fontSize: 40, color: isError ? 'error.main' : 'primary.main' }}
         />
         <Typography variant="body2" fontWeight={500}>
