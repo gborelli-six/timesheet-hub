@@ -131,6 +131,8 @@ Storia → documentazione permanente:
 - STORY-E8a-5: `frontend/src/pages/ImportPage.tsx` (integrazione suggerimenti), `frontend/src/hooks/useMappingSuggestions.ts`, chip "Suggerito" in `PreviewTable.tsx`
 - STORY-E8a-6: `e2e/tests/import-suggestions.spec.ts`
 
+**Enhancement post-E8a** (2026-07-03) — pulsante **"Precompila righe simili"** nello Step 2: precompila le righe vuote con i connettori delle righe già assegnate nella pagina, match esatto su `(progetto, task)` normalizzati (stessa chiave dei suggerimenti da storico, ma sorgente in-page). Utile a prima importazione / nuove attività non ancora nello storico. File: `frontend/src/pages/ImportPage.tsx` (`computeSimilarFill`/`handleFillSimilar`, `data-testid=preview-btn-fill-similar`), test `e2e/tests/import-fill-similar.spec.ts`, spec [`007`](../specs/007-multi-connector-row-mapping.md) §3.1, guida `docs/guides/excel-upload.md`.
+
 > **Nota di riconciliazione**: E8a è stata chiusa **senza persistere i log di importazione** — `POST /api/me/imports` (`backend/app/routers/imports.py`) esegue il submit sugli adapter e restituisce i risultati solo nella response HTTP (nessuna tabella `imports`/`import_rows`, nessun endpoint `GET`). La roadmap v0.5 assegnava `imports` a E8a; la persistenza mancante è **assorbita da E9a** (vedi sotto).
 
 ## E9a — Completata

@@ -65,6 +65,15 @@ export async function generateE2EFixtures(): Promise<void> {
     { date: "2026-03-02", project: "Beta Project", task: "Review", hours: 4, notes: "" },
   ]);
 
+  // Enhancement E8a: fixture per "Precompila righe simili" (in-page).
+  //   Riga 0 e 1 condividono (progetto, task) → la 1 va precompilata dalla 0.
+  //   Riga 2 ha (progetto, task) diverso → NON deve essere toccata.
+  await writeFixture("fill-similar.xlsx", [
+    { date: "2026-05-01", project: "Fill Alpha", task: "Shared Task", hours: 8, notes: "" },
+    { date: "2026-05-02", project: "Fill Alpha", task: "Shared Task", hours: 4, notes: "" },
+    { date: "2026-05-03", project: "Fill Beta", task: "Other Task", hours: 2, notes: "" },
+  ]);
+
   // E8b: fixture per il test del wizard con connettore Jira stub
   // excel_project/excel_task devono corrispondere al seed-mapping iniettato dal beforeEach
   await writeFixture("jira-happy.xlsx", [

@@ -94,6 +94,18 @@ All'avvio di una nuova importazione, per ogni riga si interroga `connector_row_m
 
 I suggerimenti sono **sempre modificabili**: l'utente può rimuovere un'assegnazione suggerita, cambiarne progetto/task, o aggiungerne di nuove prima di confermare.
 
+### 3.1 Precompilazione righe simili in-page
+
+Lo storico (§3) copre solo le righe già viste in importazioni precedenti. Alla **prima importazione**, o per **nuovi progetti/attività** non ancora presenti in `connector_row_mappings`, non c'è alcun suggerimento: l'utente deve assegnare a mano ogni riga, anche quando molte condividono la stessa coppia `(progetto, task)`.
+
+Per accelerare questi casi, lo **Step 2 "Verifica e assegna"** espone un pulsante **"Precompila righe simili"** (icona *sparkle*, `data-testid=preview-btn-fill-similar`) con un hint che indica quante righe sono precompilabili (`data-testid=preview-fill-similar-hint`). Al click, per ogni riga **ancora vuota** il sistema cerca, **tra le righe già assegnate nella pagina corrente**, una riga con la **stessa coppia `(progetto, task)` normalizzata** e ne **clona** la lista di connettori, marcandola `suggested = true` (identica resa visiva dei suggerimenti da storico).
+
+- **Chiave di matching**: identica allo storico — **match esatto** su `(project, task)` con la stessa normalizzazione (`trim` + collasso spazi + lowercase). Nessun fallback su solo-progetto.
+- **Sorgente locale, non lo storico**: opera esclusivamente sui dati della pagina corrente (non richiede importazioni precedenti né una chiamata API); è complementare ai suggerimenti da storico di §3, che restano il meccanismo per le importazioni successive alla prima.
+- **Solo righe vuote**: le righe già assegnate (manualmente o da suggerimento) non vengono toccate; se la prima assegnata per una data coppia ha più connettori, vengono clonati tutti.
+- **Idempotente**: se nessuna riga vuota ha una coppia corrispondente a una riga assegnata, il pulsante è disabilitato (conteggio 0).
+- **Persistenza**: le righe precompilate confluiscono in `entries` come qualsiasi altra assegnazione, quindi al `POST /imports` vengono importate **e** salvate nello storico via l'upsert di §3, diventando suggerimento del mese successivo.
+
 **Persistenza alla submit**: al `POST /imports`, per ogni `ConnectorAssignment` effettivamente inviata si esegue un **upsert** su `connector_row_mappings` (chiave unique), aggiornando `remote_*` e `last_used_at`. Così la mappatura corrente diventa il suggerimento del mese successivo. Le associazioni rimosse dall'utente **non** vengono cancellate dallo storico (restano disponibili come suggerimento finché non sovrascritte) — scelta conservativa rivedibile col pannello di §6.
 
 ---
@@ -161,4 +173,4 @@ In una fase successiva, una **epica separata post-MVP** introdurrà una sezione 
 - **003-ux-brief.md** §3.3: Step 2 mostra i connettori assegnati per riga; Step 3 diventa assegnazione/conferma per-riga con autocomplete e chip "Suggerito".
 - **ADR-001-C**: interfaccia adapter estesa (§5).
 - **E6** (`e6-stories.md`): `TimesheetEntry` porta `connectorAssignments`.
-- **E8a** (`e8a-stories.md`): tabella + migrazione, endpoint autocomplete/suggestions, UI modal, E2E.
+- **E8a** (`e8a-stories.md`): tabella + migrazione, endpoint autocomplete/suggestions, UI modal, E2E; pulsante "Precompila righe simili" nello Step 2 (§3.1).
