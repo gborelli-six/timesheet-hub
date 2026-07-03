@@ -63,7 +63,7 @@ function StepBar({
         position: 'sticky',
         top: 76,
         zIndex: 20,
-        borderRadius: 3,
+        borderRadius: 1.5,
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
@@ -79,8 +79,8 @@ function StepBar({
               >
                 <Box
                   sx={{
-                    width: 28,
-                    height: 28,
+                    width: 30,
+                    height: 30,
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
@@ -93,10 +93,11 @@ function StepBar({
                       ? 'primary.light'
                       : done || active
                         ? 'primary.main'
-                        : 'divider',
+                        : 'grey.300',
                     color: done || active ? '#fff' : 'text.disabled',
                     transition: 'all 0.15s',
                     cursor: clickable ? 'pointer' : 'default',
+                    boxShadow: active ? '0 0 0 4px #dae4f7' : 'none',
                     '&:hover': clickable
                       ? {
                           borderColor: 'primary.main',
@@ -124,8 +125,9 @@ function StepBar({
                 <Box
                   sx={{
                     width: 48,
-                    height: 1,
-                    bgcolor: i < current ? 'primary.main' : 'divider',
+                    height: 2,
+                    borderRadius: 1,
+                    bgcolor: i < current ? 'primary.main' : 'grey.300',
                     mx: 1.5,
                     transition: 'background-color 0.15s',
                   }}
@@ -265,7 +267,7 @@ function StepConfirm({ entries, period }: { entries: TimesheetEntry[]; period: s
       <Grid container spacing={2}>
         {/* Card sinistra — Dettagli importazione */}
         <Grid size={6}>
-          <Paper variant="outlined" sx={{ p: '20px 24px', borderRadius: 2, height: '100%' }}>
+          <Paper variant="outlined" sx={{ p: '20px 24px', borderRadius: 1, height: '100%' }}>
             <Typography
               sx={{
                 fontSize: '0.6875rem',
@@ -330,7 +332,7 @@ function StepConfirm({ entries, period }: { entries: TimesheetEntry[]; period: s
 
         {/* Card destra — Connettori coinvolti */}
         <Grid size={6}>
-          <Paper variant="outlined" sx={{ p: '20px 24px', borderRadius: 2, height: '100%' }}>
+          <Paper variant="outlined" sx={{ p: '20px 24px', borderRadius: 1, height: '100%' }}>
             <Typography
               sx={{
                 fontSize: '0.6875rem',
@@ -357,7 +359,7 @@ function StepConfirm({ entries, period }: { entries: TimesheetEntry[]; period: s
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       p: '8px 12px',
-                      borderRadius: 1.5,
+                      borderRadius: 1,
                       border: '1px solid',
                       borderColor: 'divider',
                       bgcolor: 'grey.50',
@@ -756,7 +758,10 @@ export default function ImportPage() {
         >
           Importazione
         </Typography>
-        <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
+        <Typography
+          variant="h4"
+          sx={{ fontSize: '1.875rem', fontWeight: 700, letterSpacing: '-0.02em' }}
+        >
           Nuova importazione
         </Typography>
         <Typography sx={{ fontSize: '0.8125rem', color: 'text.secondary', maxWidth: '60ch' }}>
@@ -770,7 +775,7 @@ export default function ImportPage() {
         {/* StepBar: visibile solo in phase 'form' */}
         {phase === 'form' && <StepBar current={stepIndex} maxReached={maxReached} onJump={goTo} />}
 
-        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
           {/* Panel head — nascosto in result, mostrato in submitting solo per titolo */}
           {phase !== 'result' && (
             <Box
@@ -939,9 +944,11 @@ export default function ImportPage() {
                         mt: 2.5,
                         border: '1px solid',
                         borderColor: 'divider',
-                        borderRadius: 2,
+                        borderRadius: 1,
                         bgcolor: 'grey.50',
                         p: '14px 16px',
+                        maxWidth: 620,
+                        mx: 'auto',
                       }}
                     >
                       <Box
