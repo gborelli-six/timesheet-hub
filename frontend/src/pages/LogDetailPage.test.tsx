@@ -47,6 +47,10 @@ const DETAIL: ImportLogDetail = {
   success_rows: 1,
   failed_rows: 1,
   services: ['jira', 'linear'],
+  connectors: [
+    { service: 'jira', label: 'Jira' },
+    { service: 'linear', label: 'Linear' },
+  ],
   created_at: '2026-05-28T16:42:00',
   rows: [
     row({ id: 'r1', row_number: 1, service: 'jira', status: 'success' }),
