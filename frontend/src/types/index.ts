@@ -43,6 +43,7 @@ export interface ImportRowOut {
   remote_task_id: string | null
   remote_task_name: string | null
   hours: number
+  entry_date: string | null
   status: ImportRowStatus
   error_message: string | null
 }
