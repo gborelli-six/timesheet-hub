@@ -57,3 +57,6 @@ class UserToken(TimestampMixin, Base):
         Boolean, nullable=False, default=False, server_default="false"
     )
     db_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )

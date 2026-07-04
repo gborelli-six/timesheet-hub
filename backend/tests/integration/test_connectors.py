@@ -513,3 +513,88 @@ def test_put_with_secret_resets_needs_reauth(api):
     # Verifica anche in DB
     db.refresh(token)
     assert token.needs_reauth is False
+
+
+# ── Soft-delete ───────────────────────────────────────────────────────────────
+
+
+def test_delete_soft_deletes_and_wipes_secrets(api):
+    client, db = api
+    token = _make_session(USER_A_ID)
+    client.put(
+        "/api/me/connectors/odoo",
+        json={
+            "service": "odoo",
+            "account_identifier": "alice@example.com",
+            "base_url": "https://odoo.example.com",
+            "secret": "my-secret",
+            "db_name": "prod",
+        },
+        cookies={"session": token},
+    )
+
+    r = client.delete("/api/me/connectors/odoo", cookies={"session": token})
+    assert r.status_code == 200
+
+    db.expire_all()
+    row = (
+        db.query(UserToken)
+        .filter(UserToken.user_id == USER_A_ID, UserToken.is_active == False)  # noqa: E712
+        .first()
+    )
+    assert row is not None
+    assert row.is_active is False
+    assert row.service.value == "odoo"
+    assert row.label.startswith("odoo__deactivated_")
+    assert row.secret_enc == b""
+    assert row.nonce == b""
+    assert row.account_identifier is None
+    assert row.base_url is None
+    assert row.db_name is None
+
+
+def test_can_recreate_connector_after_delete(api):
+    client, db = api
+    token = _make_session(USER_A_ID)
+
+    client.put(
+        "/api/me/connectors/odoo",
+        json={"service": "odoo", "secret": "first-secret"},
+        cookies={"session": token},
+    )
+    client.delete("/api/me/connectors/odoo", cookies={"session": token})
+
+    r = client.put(
+        "/api/me/connectors/odoo",
+        json={
+            "service": "odoo",
+            "account_identifier": "new@example.com",
+            "secret": "new-secret",
+        },
+        cookies={"session": token},
+    )
+    assert r.status_code == 200
+    assert r.json()["label"] == "odoo"
+    assert r.json()["account_identifier"] == "new@example.com"
+
+    r2 = client.get("/api/me/connectors/", cookies={"session": token})
+    assert len(r2.json()) == 1
+    assert r2.json()[0]["label"] == "odoo"
+
+    all_rows = db.query(UserToken).filter(UserToken.user_id == USER_A_ID).all()
+    assert len(all_rows) == 2
+
+
+def test_delete_already_deleted_returns_404(api):
+    client, _ = api
+    token = _make_session(USER_A_ID)
+    client.put(
+        "/api/me/connectors/odoo",
+        json={"service": "odoo", "secret": "s"},
+        cookies={"session": token},
+    )
+    r1 = client.delete("/api/me/connectors/odoo", cookies={"session": token})
+    assert r1.status_code == 200
+
+    r2 = client.delete("/api/me/connectors/odoo", cookies={"session": token})
+    assert r2.status_code == 404

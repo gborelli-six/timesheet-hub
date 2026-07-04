@@ -15,7 +15,11 @@ def _normalize(s: str) -> str:
 
 
 def _active_labels(db: Session, user_id: UUID) -> set[str]:
-    tokens = db.query(UserToken).filter(UserToken.user_id == user_id).all()
+    tokens = (
+        db.query(UserToken)
+        .filter(UserToken.user_id == user_id, UserToken.is_active == True)  # noqa: E712
+        .all()
+    )
     return {t.label for t in tokens}
 
 
