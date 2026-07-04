@@ -35,7 +35,11 @@ class TaskOut(BaseModel):
 def _get_token_or_404(db: Session, user_id: UUID, label: str) -> UserToken:
     token = (
         db.query(UserToken)
-        .filter(UserToken.user_id == user_id, UserToken.label == label)
+        .filter(
+            UserToken.user_id == user_id,
+            UserToken.label == label,
+            UserToken.is_active == True,  # noqa: E712
+        )
         .first()
     )
     if token is None:
