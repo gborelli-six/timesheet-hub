@@ -91,6 +91,7 @@ class ImportRowOut(BaseModel):
     remote_task_id: str | None
     remote_task_name: str | None
     hours: float
+    entry_date: date | None
     status: ImportRowStatus
     error_message: str | None
 
@@ -171,6 +172,15 @@ def _derive_period(entries: list[EntryIn]) -> tuple[date | None, date | None]:
     return min(parsed), max(parsed)
 
 
+def _parse_entry_date(raw: str) -> date | None:
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
 def _filter_entries_for_label(
     entries: list[EntryIn], label: str
 ) -> tuple[list[AdapterEntry], list[int]]:
@@ -246,6 +256,7 @@ def _persist_import_results(
                     remote_task_id=a.remote_task_id,
                     remote_task_name=a.remote_task_name,
                     hours=entry.hours,
+                    entry_date=_parse_entry_date(entry.date),
                     status=(
                         ImportRowStatus.failed if is_failed else ImportRowStatus.success
                     ),

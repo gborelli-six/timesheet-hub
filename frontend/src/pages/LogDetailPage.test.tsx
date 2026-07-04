@@ -32,6 +32,7 @@ function row(over: Partial<ImportRowOut>): ImportRowOut {
     remote_task_id: 't1',
     remote_task_name: 'Task A',
     hours: 8,
+    entry_date: '2026-05-15',
     status: 'success',
     error_message: null,
     ...over,
