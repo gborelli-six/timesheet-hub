@@ -27,6 +27,7 @@ import {
   type SuggestedAssignmentResponse,
 } from '../hooks/useMappingSuggestions'
 import { useImportPolling } from '../hooks/useImports'
+import { usePreviewFilters } from '../hooks/usePreviewFilters'
 import { useSubmitImport } from '../hooks/useSubmitImport'
 import { loadDraft, saveDraft, clearDraft, type ImportStep } from '../lib/importDraft'
 import { normalize } from '../lib/timesheet/normalizer'
@@ -225,7 +226,7 @@ function normalizeKey(s: string): string {
 // Deduce le assegnazioni per le righe ancora vuote a partire dalle righe già
 // assegnate nella pagina: match esatto sulla coppia (project, task) normalizzata,
 // clona la lista connettori marcandola suggested: true.
-function computeSimilarFill(
+export function computeSimilarFill(
   currentEntries: TimesheetEntry[],
   currentAssignments: Record<number, ConnectorAssignment[]>,
 ): Record<number, ConnectorAssignment[]> {
@@ -530,6 +531,9 @@ export default function ImportPage() {
   const { mutate: submitImport } = useSubmitImport()
   const { data: pollingDetail } = useImportPolling(importId, phase === 'polling')
 
+  // Filtri Step 2 (data/progetto/task) — transitori, non persistiti nella bozza.
+  const previewFilters = usePreviewFilters(entries)
+
   // true una volta completato (o saltato) il ripristino della bozza: impedisce
   // sia un doppio restore sia che il save-effect sovrascriva la bozza con lo
   // stato vuoto del primo render prima di averla letta.
@@ -638,6 +642,7 @@ export default function ImportPage() {
     setAssignments({})
     setModalRow(null)
     setSubmitError(null)
+    previewFilters.resetFilters()
   }
 
   function handleBackToPreview() {
@@ -687,6 +692,7 @@ export default function ImportPage() {
     setAssignments({})
     setModalRow(null)
     setSubmitError(null)
+    previewFilters.resetFilters()
   }
 
   const perRowWarnings = warnings.filter((w) => w.entryIndex >= 0)
@@ -1053,6 +1059,16 @@ export default function ImportPage() {
                       warnings={warnings}
                       assignmentsByRow={assignments}
                       onAssign={setModalRow}
+                      filteredIndices={previewFilters.filteredIndices}
+                      filters={previewFilters.filters}
+                      distinctDates={previewFilters.distinctDates}
+                      distinctProjects={previewFilters.distinctProjects}
+                      distinctTasks={previewFilters.distinctTasks}
+                      onFilterDate={previewFilters.setFilterDate}
+                      onFilterProject={previewFilters.setFilterProject}
+                      onFilterTask={previewFilters.setFilterTask}
+                      isFiltered={previewFilters.isFiltered}
+                      onResetFilters={previewFilters.resetFilters}
                     />
                     {suggestionsLoading && (
                       <Box

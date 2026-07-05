@@ -12,6 +12,7 @@ from app.adapters.base import (
 )
 from app.adapters.odoo import OdooAdapter
 from app.adapters.registry import adapter_registry
+from app.core.config import settings
 
 PATCH = "app.adapters.odoo.xmlrpc.client.ServerProxy"
 
@@ -152,6 +153,10 @@ def test_submit_raises_auth_error_on_bad_credentials():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    settings.e2e_test_mode,
+    reason="E2E_TEST_MODE=true: StubAdapter sovrascrive OdooAdapter nel registry",
+)
 def test_odoo_adapter_is_registered():
     assert adapter_registry.get(ServiceType.odoo) is OdooAdapter
 

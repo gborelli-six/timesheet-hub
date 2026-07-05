@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import PreviewTable from './PreviewTable'
 import { WarningType } from '../../lib/timesheet/types'
 import type { ConnectorAssignment, TimesheetEntry, RowWarning } from '../../lib/timesheet/types'
@@ -124,5 +124,49 @@ describe('PreviewTable', () => {
       />,
     )
     expect(screen.queryByTestId('suggested-icon-0-0')).not.toBeInTheDocument()
+  })
+
+  it('filteredIndices=[0,2] su 4 entries: renderizza solo le righe con indice originale', () => {
+    const entries = [makeEntry(), makeEntry(), makeEntry(), makeEntry()]
+    render(
+      <PreviewTable
+        entries={entries}
+        warnings={[]}
+        assignmentsByRow={{}}
+        onAssign={() => {}}
+        filteredIndices={[0, 2]}
+        isFiltered
+      />,
+    )
+    // I data-testid degli assign-trigger corrispondono agli indici originali 0 e 2.
+    expect(screen.getByTestId('assign-trigger-0')).toBeInTheDocument()
+    expect(screen.getByTestId('assign-trigger-2')).toBeInTheDocument()
+    expect(screen.queryByTestId('assign-trigger-1')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('assign-trigger-3')).not.toBeInTheDocument()
+    // Contatore "Mostrate X di Y".
+    expect(screen.getByTestId('filter-count')).toHaveTextContent('Mostrate 2 di 4 righe')
+  })
+
+  it('click su assign-trigger di riga filtrata passa l’indice originale (E9c-5)', () => {
+    const entries = [makeEntry(), makeEntry(), makeEntry(), makeEntry()]
+    const onAssign = vi.fn()
+    render(
+      <PreviewTable
+        entries={entries}
+        warnings={[]}
+        assignmentsByRow={{}}
+        onAssign={onAssign}
+        filteredIndices={[2, 3]}
+        isFiltered
+      />,
+    )
+    fireEvent.click(screen.getByTestId('assign-trigger-2'))
+    expect(onAssign).toHaveBeenCalledWith(2)
+    expect(onAssign).not.toHaveBeenCalledWith(0)
+  })
+
+  it('senza filtri il contatore non è mostrato (retrocompatibilità)', () => {
+    render(<PreviewTable entries={[makeEntry(), makeEntry()]} warnings={[]} />)
+    expect(screen.queryByTestId('filter-count')).not.toBeInTheDocument()
   })
 })

@@ -74,6 +74,23 @@ export async function generateE2EFixtures(): Promise<void> {
     { date: "2026-05-03", project: "Fill Beta", task: "Other Task", hours: 2, notes: "" },
   ]);
 
+  // E9c-6: fixture per i filtri dello Step 2 — 8 righe, 3 progetti / 3 task / 3 date
+  // distinti. Nessun marcatore E2E__ e chiavi non presenti nei mapping seminati,
+  // così tutte le righe partono vuote (i connettori si assegnano a mano nel test).
+  //   Progetti: Alpha (0,1,2) · Beta (3,4,5) · Gamma (6,7)
+  //   Task:     Dev (0,2,5)   · Review (1,3,7) · QA (4,6)
+  //   Date:     2026-06-01 (0,1) · 2026-06-02 (2,3,4) · 2026-06-03 (5,6,7)
+  await writeFixture("filters.xlsx", [
+    { date: "2026-06-01", project: "Alpha", task: "Dev", hours: 8, notes: "" },
+    { date: "2026-06-01", project: "Alpha", task: "Review", hours: 4, notes: "" },
+    { date: "2026-06-02", project: "Alpha", task: "Dev", hours: 6, notes: "" },
+    { date: "2026-06-02", project: "Beta", task: "Review", hours: 3, notes: "" },
+    { date: "2026-06-02", project: "Beta", task: "QA", hours: 2, notes: "" },
+    { date: "2026-06-03", project: "Beta", task: "Dev", hours: 5, notes: "" },
+    { date: "2026-06-03", project: "Gamma", task: "QA", hours: 7, notes: "" },
+    { date: "2026-06-03", project: "Gamma", task: "Review", hours: 1, notes: "" },
+  ]);
+
   // E8b: fixture per il test del wizard con connettore Jira stub
   // excel_project/excel_task devono corrispondere al seed-mapping iniettato dal beforeEach
   await writeFixture("jira-happy.xlsx", [

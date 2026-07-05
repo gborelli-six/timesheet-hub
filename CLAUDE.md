@@ -209,18 +209,19 @@ Ordine di rilascio **employee-first** (roadmap v0.5): 🏁 Employee MVP → 🏁
 | E6 | ✅ Done | 6 | Upload Excel, SheetJS parsing, `TimesheetEntry[]` (con `connectorAssignments`), Normalizer | E4 |
 | E7 | ✅ Done | 7 | Architettura plug-in adapter + adapter Odoo (JSON-RPC, `getProjects`/`getTasks`); connettori per-utente via `user_tokens` | E5 |
 | E8a | ✅ Done | 6 | Wizard importazione **Employee** (self-import, step 1–4, no Step 0) + **assegnazione multi-connettore per riga** con suggerimenti (`connector_row_mappings`) | E5, E6, E7 |
-| E9a | ⬜ Todo | 7 | Log importazioni **Employee** (solo propri log + dettaglio) | E8a |
+| E9a | ✅ Done | 8 | Log importazioni **Employee** (propri log + dettaglio, persistenza `imports`/`import_rows`) | E8a |
 | — | 🏁 | — | **Milestone: Employee MVP** | — |
+| E9b | ⬜ Todo | TBD | Log importazioni — incremento **HR** (vede tutti i log + filtri avanzati) | E9a, E3bis |
+| E9c | ⬜ Todo | 6 | Filtri Step 2 "Verifica ed Assegna" — icone imbuto per data/progetto/task (Opzione C) | E8a |
 | E3bis | ⬜ Todo | TBD | Gestione ruoli (API assegnazione/promozione employee/hr/admin) | E3 |
 | E10 | ⬜ Todo | TBD | Pannello Admin (UI utenti/ruoli su E3bis, backend config CRUD, mapping Excel) | E3bis, E8a |
 | — | 🏁 | — | **Milestone: Admin** | — |
 | E8b | ⬜ Todo | TBD | Wizard import — incremento **HR** (Step 0 selezione dipendente, `POST /imports?for=<email>`) | E8a, E3bis |
-| E9b | ⬜ Todo | TBD | Log importazioni — incremento **HR** (vede tutti i log + filtri avanzati) | E9a, E3bis |
 | — | 🏁 | — | **Milestone: HR** | — |
 | E11 | ⬜ Todo | TBD | Adapter aggiuntivi (Jira, Linear, Asana — post-v1) | E7 |
 | E12 | ⬜ Todo | TBD | Pannello per-utente mappature riga↔connettore preimpostate (post-v1) | E8a |
 
-**Prossima epica da implementare:** E9a (log importazioni Employee — dipende da E8a ✅, nessun blocco)
+**Prossima epica da implementare:** E9c (filtri Step 2 wizard — dipende da E8a ✅, nessun blocco)
 
 ---
 

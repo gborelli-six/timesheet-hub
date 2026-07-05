@@ -1,6 +1,6 @@
 # Backlog Timesheet Hub
 
-> Aggiornato: 2026-07-02 — E1/E2/E3/E4/E5/E6/E7/E8a/E9a completate. 🏁 **Milestone Employee MVP raggiunta**. Prossima epica: E3bis (gestione ruoli). **Riconciliazione**: E8a è stata chiusa senza persistere i log (`POST /imports` effimero, nessuna tabella `imports`); E9a **assorbe la persistenza** (possiede `imports`/`import_rows` + migrazione + scrittura alla submit) e non è più solo-lettura. **Riprioritizzazione employee-first** (roadmap v0.5): rilascio in ordine 🏁 Employee MVP → 🏁 Admin → 🏁 HR. Wizard e log spezzati in E8a/E9a (employee) ed E8b/E9b (HR); nuova epica E3bis (gestione ruoli). **Nuovo requisito**: assegnazione **multi-connettore per riga** + suggerimenti da storico (spec [`007`](../specs/007-multi-connector-row-mapping.md)) — predisposto in E6 (modello dati), dettagliato in E8a; pannello per-utente delle mappature → nuova epica post-MVP **E12**.
+> Aggiornato: 2026-07-05 — E1/E2/E3/E4/E5/E6/E7/E8a/E9a/**E9c** completate. 🏁 **Milestone Employee MVP raggiunta**. Prossima epica: E3bis (gestione ruoli). **Riconciliazione**: E8a è stata chiusa senza persistere i log (`POST /imports` effimero, nessuna tabella `imports`); E9a **assorbe la persistenza** (possiede `imports`/`import_rows` + migrazione + scrittura alla submit) e non è più solo-lettura. **Riprioritizzazione employee-first** (roadmap v0.5): rilascio in ordine 🏁 Employee MVP → 🏁 Admin → 🏁 HR. Wizard e log spezzati in E8a/E9a (employee) ed E8b/E9b (HR); nuova epica E3bis (gestione ruoli). **Nuova epica E9c**: filtri per data/progetto/task nello Step 2 "Verifica ed Assegna" del wizard — Opzione C (icone imbuto stile Excel), 6 storie in `e9c-stories.md`. **Nuovo requisito**: assegnazione **multi-connettore per riga** + suggerimenti da storico (spec [`007`](../specs/007-multi-connector-row-mapping.md)) — predisposto in E6 (modello dati), dettagliato in E8a; pannello per-utente delle mappature → nuova epica post-MVP **E12**.
 
 Il backlog è effimero: le storie completate vengono rimosse dopo il merge su `main` e l'aggiornamento della documentazione permanente (ADR, spec, guide). I dati persistenti vivono in ADR/spec/test/codice, non qui.
 
@@ -8,7 +8,7 @@ Riferimenti: `docs/timesheet-hub-roadmap.md` · `docs/adr/ADR-001` · `docs/adr/
 
 ## Avanzamento per epica
 
-Ordine di rilascio **employee-first** (vedi `docs/timesheet-hub-roadmap.md` v0.5): E4 → E5 → E6 → E7 → **E8a** → **E9a** [🏁 Employee MVP] → **E3bis** → E10 [🏁 Admin] → **E8b** → **E9b** [🏁 HR] → E11.
+Ordine di rilascio **employee-first** (vedi `docs/timesheet-hub-roadmap.md` v0.5): E4 → E5 → E6 → E7 → **E8a** → **E9a** [🏁 Employee MVP] → **E9c** → **E3bis** → E10 [🏁 Admin] → **E8b** → **E9b** [🏁 HR] → E11.
 
 | Epica | Done | In Progress | Todo | Blocked | Totale | Note |
 |---|---|---|---|---|---|---|
@@ -21,10 +21,11 @@ Ordine di rilascio **employee-first** (vedi `docs/timesheet-hub-roadmap.md` v0.5
 | E7 | 7 | 0 | 0 | 0 | 7 ✅ | architettura plug-in + adapter Odoo — completata |
 | E8a | 6 | 0 | 0 | 0 | 6 ✅ | wizard employee — completata |
 | E9a | 8 | 0 | 0 | 0 | 8 ✅ | log Employee — completata |
+| E9b | 0 | 0 | TBD | 0 | TBD | log HR — storie just-in-time |
+| E9c | 6 | 0 | 0 | 0 | 6 ✅ | filtri Step 2 wizard — completata |
 | E3bis | 0 | 0 | TBD | 0 | TBD | gestione ruoli — storie just-in-time |
 | E10 | 0 | 0 | TBD | 0 | TBD | pannello Admin — storie just-in-time |
 | E8b | 0 | 0 | TBD | 0 | TBD | wizard HR — storie just-in-time |
-| E9b | 0 | 0 | TBD | 0 | TBD | log HR — storie just-in-time |
 | E11 | 0 | 0 | TBD | 0 | TBD | adapter aggiuntivi — post-v1 |
 | E12 | 0 | 0 | TBD | 0 | TBD | pannello per-utente mappature riga↔connettore — post-v1 |
 
@@ -158,8 +159,25 @@ Docs: `docs/guides/log-importazioni.md`, aggiornamenti `001-functional-spec.md`,
 | STORY-E9a-7 | E2E: log consultabile + RBAC "solo i propri log" | E2E | ✅ Done |
 | STORY-E9a-8 | Documentazione (Definition of Done) | Docs | ✅ Done |
 
+## E9c — Completata
+
+6 storie: tutte ✅ Done. Dipende da E8a (✅). **Scope**: filtri per data/progetto/task nello Step 2 "Verifica ed Assegna" del wizard (Opzione C — icone imbuto stile Excel, dropdown multi-selezione + ricerca). Filtri transitori (non persistiti nella bozza); badge globali e "Precompila righe simili" restano sui totali; AssignModal riceve sempre l'indice originale.
+
+Frontend: hook `frontend/src/hooks/usePreviewFilters.ts` (stato filtri + `filteredIndices` in AND + `distinct*` memoizzati) con test `usePreviewFilters.test.ts`; `PreviewTable.tsx` esteso con imbuti `ColumnFilter`/`FilterableHeader` (props opzionali retrocompatibili, render per indice originale, contatore "Mostrate X di Y", reset); cablaggio + reset in `ImportPage.tsx` (`handleBack`/`handleReset`), `computeSimilarFill` esportato per test (`pages/computeSimilarFill.test.ts`). `data-testid`: `column-filter-{date,project,task}`, `filter-count`, `filter-reset`.
+
+E2E: `e2e/tests/import-filters.spec.ts` (5 scenari: filtro singolo progetto, combinati progetto+task, reset, assegnazione con filtro attivo su indice originale, precompila con righe nascoste); fixture `filters.xlsx` (8 righe, 3 progetti/task/date) in `e2e/fixtures/generate.ts`.
+
+| ID | Titolo | Tipo | Stato |
+|---|---|---|---|
+| STORY-E9c-1 | Hook `usePreviewFilters` | tech | ✅ Done |
+| STORY-E9c-2 | Filtri in PreviewTable — icone imbuto | feature | ✅ Done |
+| STORY-E9c-3 | Cablaggio hook in ImportPage + reset | feature | ✅ Done |
+| STORY-E9c-4 | Coerenza filtri con "Precompila righe simili" | enhancement | ✅ Done |
+| STORY-E9c-5 | Coerenza filtri con AssignModal | enhancement | ✅ Done |
+| STORY-E9c-6 | Test E2E filtri Step 2 | E2E | ✅ Done |
+
 ## Prossima epica da implementare
-**E3bis** (gestione ruoli) — E9a completata. 🏁 Milestone Employee MVP raggiunta. Nessun blocco.
+**E3bis** (gestione ruoli — API assegnazione/promozione employee/hr/admin). Sblocca E10 (pannello Admin) ed E8b (wizard HR). Storie da scrivere just-in-time.
 
 ## Roadmap epiche successive (storie da scrivere just-in-time)
 Le epiche E3bis, E10, E8b, E9b non hanno ancora file storie: si dettagliano al momento dell'inserimento in sprint, nell'ordine di rilascio sopra.

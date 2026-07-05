@@ -15,6 +15,7 @@ from app.adapters.base import (
 )
 from app.adapters.jira import JiraAdapter
 from app.adapters.registry import adapter_registry
+from app.core.config import settings
 
 PATCH_URLOPEN = "app.adapters.jira.urllib.request.urlopen"
 
@@ -350,5 +351,9 @@ def test_submit_converts_hours_to_seconds():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    settings.e2e_test_mode,
+    reason="E2E_TEST_MODE=true: StubAdapter sovrascrive JiraAdapter nel registry",
+)
 def test_jira_adapter_is_registered():
     assert adapter_registry.get(ServiceType.jira) is JiraAdapter
