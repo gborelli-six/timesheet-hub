@@ -596,7 +596,7 @@ export default function ImportPage() {
     const result = normalize(rows, DEFAULT_COLUMN_MAPPING, rowNumbers)
     if (result.warnings.some((w) => w.type === WarningType.MISSING_PERIOD)) {
       setFormatError(
-        'Formato non riconosciuto. Il file deve avere le colonne: Data, Progetto, Task, Ore, Note.',
+        'Formato non riconosciuto. Il file deve avere le colonne: Date, Project, Task, Hours, Notes.',
       )
       setFileKey((k) => k + 1)
       setHasFile(false)
@@ -979,7 +979,7 @@ export default function ImportPage() {
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                        {['Data', 'Progetto', 'Task', 'Ore', 'Note'].map((col) => (
+                        {['Date', 'Project', 'Task', 'Hours', 'Notes'].map((col) => (
                           <Box
                             key={col}
                             component="span"

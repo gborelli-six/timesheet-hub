@@ -106,7 +106,7 @@ async function writeFixture(filename: string, rows: TimesheetRow[]): Promise<voi
   const ws = wb.addWorksheet("Timesheet");
 
   // Header standard Timesheet Hub (template atteso dall'import wizard)
-  ws.addRow(["Data", "Progetto", "Task", "Ore", "Note"]);
+  ws.addRow(["Date", "Project", "Task", "Hours", "Notes"]);
 
   for (const row of rows) {
     ws.addRow([row.date, row.project, row.task, row.hours, row.notes ?? ""]);
@@ -138,7 +138,7 @@ async function writeWrongColumnFixture(filename: string): Promise<void> {
 async function writeAnomalieFixture(filename: string): Promise<void> {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Timesheet");
-  ws.addRow(["Data", "Progetto", "Task", "Ore", "Note"]);
+  ws.addRow(["Date", "Project", "Task", "Hours", "Notes"]);
   ws.addRow(["2026-01-15", "E2E__OK", "dev", 8, ""]);   // valida
   ws.addRow(["2026-01-16", "", "review", "", ""]);       // MISSING_PROJECT + MISSING_HOURS
   ws.addRow(["2026-01-17", "E2E__OK", "", 4, ""]);       // MISSING_TASK

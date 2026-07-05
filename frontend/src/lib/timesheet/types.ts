@@ -43,11 +43,11 @@ export type ColumnMapping = {
 }
 
 export const DEFAULT_COLUMN_MAPPING: ColumnMapping = {
-  date: 'Data',
-  project: 'Progetto',
+  date: 'Date',
+  project: 'Project',
   task: 'Task',
-  hours: 'Ore',
-  notes: 'Note',
+  hours: 'Hours',
+  notes: 'Notes',
 }
 
 export const WARNING_LABEL: Record<WarningType, string> = {
