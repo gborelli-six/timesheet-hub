@@ -79,3 +79,31 @@ export interface ImportSubmitResponse {
   import_id: string
   results: ConnectorResult[]
 }
+
+// ─── Report ore (E9d) ────────────────────────────────────────────────────────
+
+// Riga alla granularità massima restituita da GET /api/me/reports/hours.
+// L'aggregazione gerarchica (progetto → giorno/task) è tutta client-side.
+export interface HoursDetailRow {
+  excel_project: string
+  excel_task: string
+  entry_date: string | null // YYYY-MM-DD o null (righe senza data)
+  connector_label: string
+  service: ServiceType
+  total_hours: number
+  row_count: number
+}
+
+export interface HoursReport {
+  rows: HoursDetailRow[]
+  grand_total_hours: number
+}
+
+export interface ReportFilters {
+  period_from?: string
+  period_to?: string
+  service?: ServiceType | ''
+  connector_label?: string
+  project?: string // filtro su excel_project
+  task?: string // filtro su excel_task
+}

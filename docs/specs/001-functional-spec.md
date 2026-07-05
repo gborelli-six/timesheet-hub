@@ -205,6 +205,42 @@ Ogni importazione viene persistita al momento del submit (`POST /api/me/imports`
 
 ---
 
+## Report delle importazioni
+
+La pagina Report offre una vista aggregata delle ore importate con successo, organizzata in una **pivot table gerarchica** per progetto × connettore.
+
+### Scopo e differenza rispetto al Log
+
+- Il **Log** è un elenco transazionale di ogni importazione e delle sue righe (incluse quelle fallite).
+- Il **Report** aggrega le sole righe con `status=success` per mostrare le ore effettivamente registrate sui backend.
+
+### Modello dati
+
+Il report legge `import_rows` via JOIN con `imports`:
+
+- Fonte: `import_rows` con `status='success'`
+- Filtro isolamento: `imports.employee_id = current_user.id` (ogni utente vede solo le proprie ore)
+- Chiave di aggregazione: `(excel_project, excel_task, entry_date, connector_label, service)` — granularità massima, nessun `GROUP BY` variabile lato backend
+- Aggregati: `SUM(hours)` → `total_hours`, `COUNT(*)` → `row_count`
+
+### Endpoint
+
+- `GET /api/me/reports/hours` — restituisce tutte le righe alla granularità massima; l'aggregazione gerarchica (Progetto → Task/Giorno → Task/Giorno) è interamente client-side
+  - Query parameters opzionali: `period_from` (date), `period_to` (date), `service`, `connector_label`, `project`, `task`
+  - Righe con `entry_date=null` sono escluse quando è attivo un filtro periodo
+- Response: `{ rows: HoursDetailRow[], grand_total_hours: float }`
+
+### Visibilità per ruolo
+
+- `employee`: solo le proprie ore (via `GET /api/me/reports/hours`)
+- HR Manager / Admin: vista per conto di un dipendente specifico — E9b (futura)
+
+### Aggregazione client-side
+
+Il frontend costruisce la struttura gerarchica in-memory dal payload flat del backend. L'espansione per-riga (Giorno o Task come prima dimensione) è controllata da un popover contestuale su ogni riga progetto, senza controlli globali.
+
+---
+
 ## Frequenza d'uso attesa
 
 L'importazione avviene tipicamente **una volta al mese** per dipendente, a chiusura del periodo di rendicontazione. Il sistema non è progettato per importazioni in tempo reale o ad alta frequenza.

@@ -5,7 +5,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.config import settings
-from app.routers import adapters, auth, connectors, health, imports, mappings, users
+from app.routers import (
+    adapters,
+    auth,
+    connectors,
+    health,
+    imports,
+    mappings,
+    reports,
+    users,
+)
 from app.routers.imports import import_worker
 
 logger = logging.getLogger(__name__)
@@ -45,6 +54,7 @@ app.include_router(connectors.router, prefix="/api/me/connectors")
 app.include_router(adapters.router)
 app.include_router(mappings.router)
 app.include_router(imports.router)
+app.include_router(reports.router)
 
 # Import lazy: il router test-only è incluso solo col flag attivo. Il modulo è
 # fisicamente presente nell'immagine (COPY app/ wholesale), ma non viene registrato
