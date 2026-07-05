@@ -14,6 +14,8 @@ const ICONS = {
   import:
     '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
   log: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 16l4-4 3 3 5-6"/>',
+  report:
+    '<rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/>',
   profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/>',
   admin:
     '<path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.2a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.2a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.2a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.2a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/>',
@@ -261,6 +263,7 @@ export function AppShell() {
         <List disablePadding>
           <NavItem to="/import" iconPath={ICONS.import} label="Import" testId="nav-import" />
           <NavItem to="/log" iconPath={ICONS.log} label="Log" testId="nav-log" />
+          <NavItem to="/report" iconPath={ICONS.report} label="Report" testId="nav-report" />
           <NavItem to="/profile" iconPath={ICONS.profile} label="Profilo" testId="nav-profilo" />
           {role === 'admin' && (
             <NavItem to="/admin" iconPath={ICONS.admin} label="Admin" testId="nav-admin" />
