@@ -38,6 +38,7 @@ function makeConnector(label: string, service: 'jira' | 'odoo' = 'jira'): Connec
     service,
     base_url: null,
     account_identifier: null,
+    config: {},
     configured: true,
     needs_reauth: false,
     updated_at: '2026-01-01T00:00:00Z',

@@ -61,7 +61,9 @@ def _build_adapter_config(token: UserToken, user_id: UUID) -> AdapterConfig:
         params={
             "password": decrypted,
             "user": token.account_identifier or "",
-            "db": token.db_name or "",
+            # db_name vive in user_tokens.config dalla migrazione 0010; lo
+            # schema del campo è dichiarato nel catalogo dei tipi.
+            "db": (token.config or {}).get("db_name", ""),
         },
     )
 

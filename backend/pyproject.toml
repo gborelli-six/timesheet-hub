@@ -15,6 +15,7 @@ dependencies = [
     "google-auth>=2.0",
     "requests>=2.31.0",
     "cryptography>=43.0",
+    "clockify-timesheet>=0.5.1",
 ]
 
 [dependency-groups]

@@ -6,10 +6,12 @@ POST /_test/session        — emette JWT HS256 per il ruolo richiesto (STORY-02
 POST /_test/reset          — cancella imports, connector_row_mappings e user_tokens.
 POST /_test/seed-mapping   — inserisce un UserToken e un ConnectorRowMapping di test.
 POST /_test/seed-import-log — inietta Import + ImportRow per test RBAC (E9a-7).
+POST /_test/seed-connector — inserisce un UserToken (sorgente o destinazione).
 """
 
 import re
 from datetime import UTC, date, datetime
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
@@ -46,6 +48,74 @@ class SeedMappingRequest(BaseModel):
     remote_project_name: str
     remote_task_id: str
     remote_task_name: str
+    # Marker E2E (E2E__OK / E2E__FAIL / E2E__EXPIRED / E2E__DOWN): gli stub lo
+    # leggono da qui. Se resta None lo stub si comporta sempre come E2E__OK.
+    account_identifier: str | None = None
+
+
+class SeedConnectorRequest(BaseModel):
+    email: str
+    connector_label: str
+    service: str
+    account_identifier: str | None = None
+    base_url: str | None = None
+    config: dict | None = None
+    secret: str = "e2e-stub-token"
+
+
+def _upsert_seed_token(
+    db: Session,
+    user: User,
+    label: str,
+    service: UserTokenService,
+    account_identifier: str | None = None,
+    base_url: str | None = None,
+    config: dict | None = None,
+    secret: str = "e2e-stub-token",
+) -> UserToken:
+    """Crea o aggiorna un UserToken di test.
+
+    L'AAD della cifratura deve essere (user_id, token.id) come in
+    app/routers/connectors.py: usare un valore diverso — il label, per esempio —
+    produce un token che si salva senza errori ma è indecifrabile al primo
+    import. L'id va quindi generato qui ed è passato a entrambe le chiamate.
+    """
+    token = db.scalars(
+        select(UserToken).where(
+            UserToken.user_id == user.id,
+            UserToken.label == label,
+        )
+    ).first()
+
+    if token is None:
+        connector_id = uuid4()
+        secret_enc, nonce, key_version = encrypt_secret(
+            secret, str(user.id), str(connector_id)
+        )
+        token = UserToken(
+            id=connector_id,
+            user_id=user.id,
+            label=label,
+            service=service,
+            account_identifier=account_identifier,
+            base_url=base_url,
+            config=config or {},
+            secret_enc=secret_enc,
+            nonce=nonce,
+            key_version=key_version,
+            needs_reauth=False,
+        )
+        db.add(token)
+        return token
+
+    token.service = service
+    if account_identifier is not None:
+        token.account_identifier = account_identifier
+    if base_url is not None:
+        token.base_url = base_url
+    if config is not None:
+        token.config = config
+    return token
 
 
 @router.post("/session")
@@ -145,31 +215,13 @@ def seed_mapping(req: SeedMappingRequest, db: Session = Depends(get_db)) -> dict
     if user is None:
         raise HTTPException(status_code=404, detail=f"User not found: {req.email}")
 
-    service = UserTokenService(req.service)
-
-    token = db.scalars(
-        select(UserToken).where(
-            UserToken.user_id == user.id,
-            UserToken.label == req.connector_label,
-        )
-    ).first()
-
-    if token is None:
-        secret_enc, nonce, key_version = encrypt_secret(
-            "e2e-stub-token", str(user.id), req.connector_label
-        )
-        token = UserToken(
-            user_id=user.id,
-            label=req.connector_label,
-            service=service,
-            secret_enc=secret_enc,
-            nonce=nonce,
-            key_version=key_version,
-            needs_reauth=False,
-        )
-        db.add(token)
-    elif token.service != service:
-        token.service = service
+    _upsert_seed_token(
+        db,
+        user,
+        req.connector_label,
+        UserTokenService(req.service),
+        account_identifier=req.account_identifier,
+    )
 
     norm_proj = _normalize(req.excel_project)
     norm_task = _normalize(req.excel_task)
@@ -207,3 +259,28 @@ def seed_mapping(req: SeedMappingRequest, db: Session = Depends(get_db)) -> dict
 
     db.commit()
     return {"ok": True}
+
+
+@router.post("/seed-connector")
+def seed_connector(req: SeedConnectorRequest, db: Session = Depends(get_db)) -> dict:
+    """Inietta un connettore senza mappature — serve alle sorgenti (E13).
+
+    Per attivare uno scenario di errore dello stub passare il marker in
+    `account_identifier` (E2E__DOWN, E2E__EXPIRED, E2E__FAIL).
+    """
+    user = db.scalars(select(User).where(User.email == req.email)).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail=f"User not found: {req.email}")
+
+    token = _upsert_seed_token(
+        db,
+        user,
+        req.connector_label,
+        UserTokenService(req.service),
+        account_identifier=req.account_identifier,
+        base_url=req.base_url,
+        config=req.config,
+        secret=req.secret,
+    )
+    db.commit()
+    return {"ok": True, "connector_id": str(token.id)}

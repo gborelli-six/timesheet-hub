@@ -4,10 +4,17 @@ from enum import StrEnum
 
 
 class ServiceType(StrEnum):
+    """Vocabolario condiviso da adapter (destinazioni) e source (sorgenti).
+
+    Un servizio può essere destinazione, sorgente o entrambi: il ruolo è
+    dichiarato nel catalogo (app/connector_types.py), non qui.
+    """
+
     odoo = "odoo"
     jira = "jira"
     linear = "linear"
     asana = "asana"
+    clockify = "clockify"
 
 
 @dataclass

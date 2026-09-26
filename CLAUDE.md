@@ -30,6 +30,9 @@ Applicazione web interna (SPA + API) per centralizzare l'importazione di timeshe
 │   │   ├── core/       # config, security (JWT), rbac (require_role)
 │   │   ├── models/     # SQLAlchemy models + TimestampMixin
 │   │   ├── routers/    # auth, users, health, e2e_test_router
+│   │   ├── adapters/   # DESTINAZIONI: TimesheetAdapter + registry (Odoo, Jira)
+│   │   ├── sources/    # SORGENTI: TimesheetSource + registry (Clockify)
+│   │   ├── connector_types.py  # catalogo tipi: ruolo + schema config per-tipo
 │   │   └── main.py
 │   ├── alembic/        # migrazioni DB (versions/)
 │   └── tests/          # unit/ e integration/
@@ -118,14 +121,18 @@ async def endpoint(current_user: CurrentUser = Depends(require_role([UserRole.hr
 
 ### Secrets management
 - **Livello sistema** (Railway env vars): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `JWT_SECRET`, `TOKEN_ENCRYPT_KEY`
-- **Livello per-utente**: cifrati AES-256-GCM in tabella `user_tokens`, nonce random 96-bit per record, AAD = (user_id, service), decifrati solo in memoria al momento della chiamata esterna, mai loggati
+- **Livello per-utente**: cifrati AES-256-GCM in tabella `user_tokens`, nonce random 96-bit per record, AAD = (user_id, connector_id), decifrati solo in memoria al momento della chiamata esterna, mai loggati
+- **Non sensibile**: la colonna `user_tokens.config` (JSONB) è **in chiaro** per progetto — ospita la configurazione per-tipo (es. `db_name` per Odoo), mai segreti
+- Nei seed E2E l'AAD deve usare lo stesso `connector_id` del record (`str(token.id)`), altrimenti il segreto si salva ma è indecifrabile: vedi `_upsert_seed_token` in `app/routers/e2e_test_router.py`
 
 ### E2E — dati deterministici
-I marcatori sui valori d'input determinano il comportamento dello stub adapter:
+I marcatori determinano il comportamento degli stub, sia adapter (`app/adapters/stub.py`) sia sorgenti (`app/sources/stub.py`):
 - `E2E__OK` — risposta di successo
 - `E2E__FAIL` — errore applicativo dal backend esterno
 - `E2E__EXPIRED` — token scaduto
 - `E2E__DOWN` — backend esterno irraggiungibile
+
+⚠️ Il marcatore arriva agli stub da `user_tokens.account_identifier`: un seed che non lo valorizza lascia lo scenario di errore **inattivo** (lo stub si comporta come `E2E__OK`). Per seminare un connettore: `POST /api/_test/seed-connector` (sorgenti e destinazioni) o `POST /api/_test/seed-mapping` (connettore + mappatura).
 
 ### E2E — autenticazione
 - Auth bypass tramite `POST /api/_test/session` (attivo **solo** con `E2E_TEST_MODE=true`)
@@ -219,8 +226,24 @@ Ordine di rilascio **employee-first** (roadmap v0.5): 🏁 Employee MVP → 🏁
 | — | 🏁 | — | **Milestone: HR** | — |
 | E11 | ⬜ Todo | TBD | Adapter aggiuntivi (Jira, Linear, Asana — post-v1) | E7 |
 | E12 | ⬜ Todo | TBD | Pannello per-utente mappature riga↔connettore preimpostate (post-v1) | E8a |
+| E13 | 🔄 In corso | TBD | **Sorgenti di importazione via API**: layer `TimesheetSource` (distinto dagli adapter/destinazioni), catalogo tipi + `user_tokens.config` JSONB (sostituisce `db_name`), Step 0 scelta sorgente nel wizard, sorgente **Clockify** | E5, E7, E8a |
 
-**Prossima epica da implementare:** E9a (log importazioni Employee — dipende da E8a ✅, nessun blocco)
+**Prossima epica da implementare:** E13 in corso; poi E3bis (gestione ruoli)
+
+### Sorgenti vs destinazioni (da E13)
+
+Due layer plug-in distinti, da non confondere:
+
+| | Layer | Dove | Cosa fa | Oggi |
+|---|---|---|---|---|
+| **Destinazione** | `TimesheetAdapter` | `app/adapters/` | riceve le ore e le scrive | Odoo, Jira |
+| **Sorgente** | `TimesheetSource` | `app/sources/` | fornisce le ore di un periodo | Clockify (Excel è la sorgente manuale, client-side) |
+
+Il ruolo di un servizio e i suoi campi di configurazione specifici sono dichiarati **solo** in `app/connector_types.py`. I campi per-tipo vivono nella colonna JSONB `user_tokens.config` — **mai** nuove colonne sulla tabella condivisa — e il frontend genera il form da `GET /api/connector-types`. Il `config` è in chiaro: solo dati non sensibili, i segreti restano in `secret_enc`.
+
+### Libreria Clockify
+
+`clockify-timesheet` è pubblicata su PyPI (`gborelli/clockify-timesheet`) ed è una dipendenza ordinaria in `backend/pyproject.toml`. Per aggiornarla: bump del vincolo di versione + `uv lock` in `backend/`.
 
 ---
 
@@ -234,12 +257,15 @@ Ordine di rilascio **employee-first** (roadmap v0.5): 🏁 Employee MVP → 🏁
 | ADR-003 | `docs/adr/ADR-003-e2e-testing-playwright.md` | Strategia E2E, bypass auth, stub adapter |
 | ADR-004 | `docs/adr/ADR-004-orm-conventions.md` | SQLAlchemy, Alembic, naming constraint, enum |
 | ADR-005 | `docs/adr/ADR-005-connector-credentials-security.md` | AES-256-GCM, `user_tokens`, key_version |
+| ADR-007 | `docs/adr/ADR-007-adapter-plugin-architecture.md` | Adapter di **destinazione**, registry, stub E2E |
+| ADR-008 | `docs/adr/ADR-008-import-sources.md` | **Sorgenti** di importazione, catalogo tipi, `config` JSONB |
 | Spec funzionale | `docs/specs/001-functional-spec.md` | Attori, casi d'uso, flusso principale |
 | Spec auth | `docs/specs/002-tech-spec-auth-google.md` | Flusso OAuth dettagliato, JWT payload |
 | UX brief | `docs/specs/003-timesheet-hub-ux-brief.md` | Wireframe, layout, navigazione per ruolo |
 | Piano E2E | `docs/specs/004-e2e-test-plan.md` | ~23 scenari P0-P3, convenzioni dati |
 | Spec RBAC | `docs/specs/005-tech-spec-rbac.md` | Permessi per ruolo, enforcement pattern |
 | Spec multi-connettore | `docs/specs/007-multi-connector-row-mapping.md` | Assegnazione multi-connettore per riga, autocomplete progetto/task, suggerimenti da storico, `connector_row_mappings` |
+| Spec sorgenti | `docs/specs/008-clockify-source.md` | `GET /api/connector-types`, `POST /api/me/sources/{label}/fetch`, mapping Clockify→`SourceRow`, contratto d'errore |
 | Backlog | `docs/backlog/README.md` | Stato attuale storie, link ai file per epica |
 | Agenti | `.claude/agents/` | Definizioni complete dei 10 agenti Conductor |
 | Design | `https://claude.ai/design/p/e1aac35b-a506-46e1-83e0-dbf593de6b87` | Progetto "Timesheet hub" su claude.ai/design — Design System, App Shell, Login screen |

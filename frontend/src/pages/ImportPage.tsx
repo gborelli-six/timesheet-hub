@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
@@ -20,7 +20,11 @@ import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import { AssignModal } from '../components/AssignModal'
 import { FileUpload } from '../components/FileUpload'
 import PreviewTable from '../components/PreviewTable'
+import { SourceFetchPanel } from '../components/SourceFetchPanel'
+import { SourceSelector } from '../components/SourceSelector'
+import type { SourceSelection } from '../components/SourceSelector'
 import { useConnectors } from '../hooks/useConnectors'
+import { useConnectorTypes } from '../hooks/useConnectorTypes'
 import {
   useMappingSuggestions,
   type SuggestedAssignmentResponse,
@@ -31,20 +35,27 @@ import type { ConnectorAssignment, TimesheetEntry, RowWarning } from '../lib/tim
 import { WarningType, DEFAULT_COLUMN_MAPPING } from '../lib/timesheet/types'
 import type { ConnectorOut, ConnectorResult } from '../types'
 
-type ImportStep = 'upload' | 'preview' | 'confirm'
+type ImportStep = 'source' | 'input' | 'preview' | 'confirm'
 type ImportPhase = 'form' | 'submitting' | 'result'
+// 'loading': non sappiamo ancora se l'utente ha sorgenti API configurate.
+// 'with-source': ha almeno un connettore sorgente → wizard a 4 step con lo
+// step "Sorgente" in testa. 'excel-only': nessuna sorgente configurata → lo
+// step "Sorgente" viene saltato, il wizard parte direttamente dall'upload
+// Excel (comportamento pre-E13), con `source` implicitamente `{kind:'excel'}`.
+type WizardMode = 'loading' | 'with-source' | 'excel-only'
 
-const STEPS = [
-  { id: 'upload', label: 'Upload' },
-  { id: 'preview', label: 'Verifica e assegna' },
-  { id: 'confirm', label: 'Conferma' },
-] as const
+interface StepDef {
+  id: ImportStep
+  label: string
+}
 
 function StepBar({
+  steps,
   current,
   maxReached,
   onJump,
 }: {
+  steps: StepDef[]
   current: number
   maxReached: number
   onJump: (i: number) => void
@@ -65,7 +76,7 @@ function StepBar({
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-        {STEPS.map((s, i) => {
+        {steps.map((s, i) => {
           const done = i < current
           const active = i === current
           const clickable = i <= maxReached && i !== current
@@ -118,7 +129,7 @@ function StepBar({
                   {s.label}
                 </Typography>
               </Box>
-              {i < STEPS.length - 1 && (
+              {i < steps.length - 1 && (
                 <Box
                   sx={{
                     width: 48,
@@ -137,8 +148,7 @@ function StepBar({
   )
 }
 
-function extractSubmitError(err: unknown): string {
-  const fallback = 'Importazione non riuscita. Riprova o verifica i connettori nel Profilo.'
+function extractErrorMessage(err: unknown, fallback: string): string {
   const raw = err instanceof Error ? err.message : ''
   if (!raw) return fallback
   try {
@@ -153,6 +163,13 @@ function extractSubmitError(err: unknown): string {
     if (raw.length <= 200) return raw
   }
   return fallback
+}
+
+function extractSubmitError(err: unknown): string {
+  return extractErrorMessage(
+    err,
+    'Importazione non riuscita. Riprova o verifica i connettori nel Profilo.',
+  )
 }
 
 function buildSuggestedAssignments(
@@ -449,30 +466,110 @@ function StepResult({
 export default function ImportPage() {
   const navigate = useNavigate()
 
-  const [step, setStep] = useState<ImportStep>('upload')
+  const [wizardMode, setWizardMode] = useState<WizardMode>('loading')
+  const [step, setStep] = useState<ImportStep>('source')
   const [phase, setPhase] = useState<ImportPhase>('form')
   const [maxReached, setMaxReached] = useState(0)
   const [importResults, setImportResults] = useState<ConnectorResult[]>([])
   const [importId, setImportId] = useState<string | null>(null)
 
+  const [source, setSource] = useState<SourceSelection | null>(null)
   const [entries, setEntries] = useState<TimesheetEntry[]>([])
   const [warnings, setWarnings] = useState<RowWarning[]>([])
   const [formatError, setFormatError] = useState<string | null>(null)
   const [fileKey, setFileKey] = useState(0)
-  const [hasFile, setHasFile] = useState(false)
+  const [hasInput, setHasInput] = useState(false)
   const [assignments, setAssignments] = useState<Record<number, ConnectorAssignment[]>>({})
   const [modalRow, setModalRow] = useState<number | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const { data: connectors = [] } = useConnectors()
+  const connectorsQuery = useConnectors()
+  const connectorTypesQuery = useConnectorTypes()
+  const connectors = connectorsQuery.data ?? []
+  const connectorTypes = connectorTypesQuery.data ?? []
   const { mutate: fetchSuggestions, isPending: suggestionsLoading } = useMappingSuggestions()
   const { mutate: submitImport } = useSubmitImport()
 
-  const stepIndex = step === 'upload' ? 0 : step === 'preview' ? 1 : 2
+  const hasSourceConnectors = connectors.some(
+    (c) => connectorTypes.find((t) => t.service === c.service)?.is_source,
+  )
+
+  // Una riga si assegna solo a una DESTINAZIONE: un connettore sorgente (es.
+  // Clockify) non ha un adapter di scrittura, quindi proporlo qui darebbe un
+  // autocomplete progetto/task vuoto e un errore al submit. Finché il catalogo
+  // non è caricato non si filtra nulla: la modale non è comunque raggiungibile
+  // prima dello step di preview.
+  const destinationConnectors =
+    connectorTypes.length === 0
+      ? connectors
+      : connectors.filter(
+          (c) => connectorTypes.find((t) => t.service === c.service)?.is_destination,
+        )
+
+  // Decide una sola volta, al primo caricamento riuscito di connettori e
+  // catalogo, se lo step "Sorgente" va mostrato o saltato. La decisione resta
+  // fissa per la sessione del wizard: se l'utente aggiunge/rimuove connettori
+  // sorgente mentre il wizard è aperto, il layout non cambia sotto ai suoi
+  // piedi (si aggiorna al prossimo mount della pagina).
+  const initializedRef = useRef(false)
+  useEffect(() => {
+    if (initializedRef.current) return
+    if (connectorsQuery.isLoading || connectorTypesQuery.isLoading) return
+    initializedRef.current = true
+    if (hasSourceConnectors) {
+      setWizardMode('with-source')
+      setStep('source')
+    } else {
+      setWizardMode('excel-only')
+      setSource({ kind: 'excel' })
+      setStep('input')
+    }
+  }, [connectorsQuery.isLoading, connectorTypesQuery.isLoading, hasSourceConnectors])
+
+  const steps: StepDef[] =
+    wizardMode === 'excel-only'
+      ? [
+          { id: 'input', label: 'Upload' },
+          { id: 'preview', label: 'Verifica e assegna' },
+          { id: 'confirm', label: 'Conferma' },
+        ]
+      : [
+          { id: 'source', label: 'Sorgente' },
+          { id: 'input', label: source?.kind === 'connector' ? 'Periodo' : 'Upload' },
+          { id: 'preview', label: 'Verifica e assegna' },
+          { id: 'confirm', label: 'Conferma' },
+        ]
+  const stepIndex = steps.findIndex((s) => s.id === step)
 
   function goTo(i: number) {
-    setStep(STEPS[i].id as ImportStep)
+    setStep(steps[i].id)
     setMaxReached((m) => Math.max(m, i))
+  }
+
+  // Naviga per id di step invece che per indice numerico: con la StepBar a
+  // lunghezza variabile (3 o 4 step a seconda di wizardMode) un indice
+  // hardcoded punterebbe allo step sbagliato in una delle due configurazioni.
+  function goToStep(id: ImportStep) {
+    const i = steps.findIndex((s) => s.id === id)
+    if (i === -1) return
+    goTo(i)
+  }
+
+  function resetInputState() {
+    setEntries([])
+    setWarnings([])
+    setFormatError(null)
+    setHasInput(false)
+    setFileKey((k) => k + 1)
+    setAssignments({})
+    setModalRow(null)
+    setSubmitError(null)
+  }
+
+  function handleSelectSource(selection: SourceSelection) {
+    setSource(selection)
+    resetInputState()
+    goToStep('input')
   }
 
   function handleParsed(
@@ -487,17 +584,23 @@ export default function ImportPage() {
         'Formato non riconosciuto. Il file deve avere le colonne: Data, Progetto, Task, Ore, Note.',
       )
       setFileKey((k) => k + 1)
-      setHasFile(false)
+      setHasInput(false)
       return
     }
     setFormatError(null)
     setEntries(result.entries)
     setWarnings(result.warnings)
-    setHasFile(true)
+    setHasInput(true)
+  }
+
+  function handleSourceFetched(fetchedEntries: TimesheetEntry[]) {
+    setEntries(fetchedEntries)
+    setWarnings([])
+    setHasInput(true)
   }
 
   function handleNextToPreview() {
-    goTo(1)
+    goToStep('preview')
     const rows = entries.map((e) => ({
       excel_project: e.project ?? '',
       excel_task: e.task ?? '',
@@ -507,7 +610,7 @@ export default function ImportPage() {
         const { newAssignments, updatedEntries } = buildSuggestedAssignments(
           data.suggestions,
           entries,
-          connectors,
+          destinationConnectors,
         )
         setAssignments(newAssignments)
         setEntries(updatedEntries)
@@ -516,19 +619,22 @@ export default function ImportPage() {
   }
 
   function handleNextToConfirm() {
-    goTo(2)
+    goToStep('confirm')
   }
 
-  function handleBack() {
-    setStep('upload')
-    setEntries([])
-    setWarnings([])
-    setFormatError(null)
-    setHasFile(false)
-    setFileKey((k) => k + 1)
-    setAssignments({})
-    setModalRow(null)
+  function handleBackToSource() {
+    // Il bottone che chiama questa funzione è nascosto in modalità
+    // 'excel-only' (nessuno step precedente a cui tornare): guardia difensiva.
+    if (wizardMode !== 'with-source') return
+    setStep('source')
+    setSource(null)
+    resetInputState()
+  }
+
+  function handleBackToInput() {
+    setStep('input')
     setSubmitError(null)
+    setModalRow(null)
   }
 
   function handleBackToPreview() {
@@ -564,19 +670,21 @@ export default function ImportPage() {
   }
 
   function handleReset() {
-    setStep('upload')
+    // Riparte dallo stesso step iniziale della sessione corrente (deciso una
+    // volta sola all'apertura della pagina): 'source' se ci sono sorgenti API,
+    // altrimenti direttamente 'input' con Excel implicito.
+    if (wizardMode === 'excel-only') {
+      setStep('input')
+      setSource({ kind: 'excel' })
+    } else {
+      setStep('source')
+      setSource(null)
+    }
     setPhase('form')
     setMaxReached(0)
     setImportResults([])
     setImportId(null)
-    setEntries([])
-    setWarnings([])
-    setFormatError(null)
-    setHasFile(false)
-    setFileKey((k) => k + 1)
-    setAssignments({})
-    setModalRow(null)
-    setSubmitError(null)
+    resetInputState()
   }
 
   const perRowWarnings = warnings.filter((w) => w.entryIndex >= 0)
@@ -604,20 +712,28 @@ export default function ImportPage() {
   }, [entries])
 
   const panelHeadTitle =
-    step === 'upload'
-      ? 'Carica il file Excel'
-      : step === 'preview'
-        ? 'Verifica e assegna'
-        : 'Conferma importazione'
+    step === 'source'
+      ? 'Scegli la sorgente'
+      : step === 'input'
+        ? source?.kind === 'connector'
+          ? `Scarica da ${source.serviceLabel}`
+          : 'Carica il file Excel'
+        : step === 'preview'
+          ? 'Verifica e assegna'
+          : 'Conferma importazione'
 
   const panelHeadSubtitle =
-    step === 'upload'
-      ? 'Trascina o seleziona il timesheet del periodo. Il file viene letto in locale: nessun upload sul server in questa fase.'
-      : step === 'preview'
-        ? 'Controlla i dati parsati e assegna ogni riga ai connettori, con progetto e task remoto. Le righe con warning restano importabili; quelle senza connettori non verranno importate.'
-        : "Controlla il riepilogo e conferma per avviare l'importazione verso i connettori assegnati."
+    step === 'source'
+      ? 'Seleziona da dove leggere le voci del timesheet: un file Excel oppure una sorgente API configurata nel Profilo.'
+      : step === 'input'
+        ? source?.kind === 'connector'
+          ? 'Scegli il periodo e scarica le voci. Potrai rivedere e correggere tutto nello step successivo.'
+          : 'Trascina o seleziona il timesheet del periodo. Il file viene letto in locale: nessun upload sul server in questa fase.'
+        : step === 'preview'
+          ? 'Controlla i dati parsati e assegna ogni riga ai connettori, con progetto e task remoto. Le righe con warning restano importabili; quelle senza connettori non verranno importate.'
+          : "Controlla il riepilogo e conferma per avviare l'importazione verso i connettori assegnati."
 
-  const panelStepLabel = step === 'upload' ? 'Step 1' : step === 'preview' ? 'Step 2' : 'Step 3'
+  const panelStepLabel = `Step ${stepIndex + 1}`
 
   return (
     <Box>
@@ -639,358 +755,430 @@ export default function ImportPage() {
           Nuova importazione
         </Typography>
         <Typography sx={{ fontSize: '0.8125rem', color: 'text.secondary', maxWidth: '60ch' }}>
-          Carica il timesheet, verifica i dati e assegna ogni riga ai connettori con progetto e task
+          Scegli la sorgente, verifica i dati e assegna ogni riga ai connettori con progetto e task
           remoto.
         </Typography>
       </Box>
 
       {/* Wizard */}
       <Box sx={{ maxWidth: 1060 }}>
-        {/* StepBar: visibile solo in phase 'form' */}
-        {phase === 'form' && <StepBar current={stepIndex} maxReached={maxReached} onJump={goTo} />}
+        {wizardMode === 'loading' ? (
+          // Non sappiamo ancora se lo step "Sorgente" va mostrato: niente
+          // flash dello step sbagliato, solo un caricamento neutro finché
+          // connettori e catalogo non sono pronti.
+          <Paper
+            variant="outlined"
+            sx={{
+              borderRadius: 3,
+              p: 8,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+            }}
+            data-testid="import-wizard-loading"
+          >
+            <CircularProgress size={32} />
+            <Typography variant="body2" color="text.secondary">
+              Caricamento…
+            </Typography>
+          </Paper>
+        ) : (
+          <>
+            {/* StepBar: visibile solo in phase 'form' */}
+            {phase === 'form' && (
+              <StepBar steps={steps} current={stepIndex} maxReached={maxReached} onJump={goTo} />
+            )}
 
-        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          {/* Panel head — nascosto in result, mostrato in submitting solo per titolo */}
-          {phase !== 'result' && (
-            <Box
-              sx={{
-                p: '22px 28px',
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 2.5,
-                flexWrap: 'wrap',
-              }}
-            >
-              <Box>
-                <Typography
-                  sx={{
-                    fontFamily: 'monospace',
-                    fontSize: '0.6875rem',
-                    color: 'primary.main',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                  }}
-                >
-                  {phase === 'submitting' ? 'Invio in corso' : panelStepLabel}
-                </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, mb: 0.5 }}>
-                  {phase === 'submitting' ? 'Importazione' : panelHeadTitle}
-                </Typography>
-                {phase === 'form' && (
-                  <Typography
-                    sx={{ fontSize: '0.8125rem', color: 'text.secondary', maxWidth: '64ch' }}
-                  >
-                    {panelHeadSubtitle}
-                  </Typography>
-                )}
-              </Box>
-
-              {/* Summary badges — solo in step preview */}
-              {phase === 'form' && step === 'preview' && entries.length > 0 && (
+            <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+              {/* Panel head — nascosto in result, mostrato in submitting solo per titolo */}
+              {phase !== 'result' && (
                 <Box
                   sx={{
+                    p: '22px 28px',
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: 2.5,
                     flexWrap: 'wrap',
-                    flexShrink: 0,
                   }}
                 >
-                  <Chip
-                    label={`${validRowCount} valide`}
-                    color="success"
-                    size="small"
-                    sx={{ fontWeight: 600 }}
-                  />
-                  {warningRowCount > 0 && (
-                    <Chip
-                      label={`${warningRowCount} con warning`}
-                      color="warning"
-                      size="small"
-                      icon={<WarningAmberOutlinedIcon />}
-                      sx={{ fontWeight: 600 }}
-                    />
-                  )}
-                  <Chip
-                    label={`${importableRows}/${entries.length} righe pronte`}
-                    color="primary"
-                    size="small"
-                    sx={{ fontWeight: 600 }}
-                  />
-                  {hasSuggestions && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                      <Box
-                        sx={{
-                          width: 14,
-                          height: 14,
-                          borderRadius: 0.5,
-                          bgcolor: 'info.lighter',
-                          border: '1px dashed',
-                          borderColor: 'info.light',
-                          flexShrink: 0,
-                        }}
-                      />
-                      <Typography sx={{ fontSize: '0.6875rem', color: 'text.secondary' }}>
-                        = suggerito
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-              )}
-            </Box>
-          )}
-
-          {/* Panel body */}
-          <Box sx={{ p: '24px 28px' }}>
-            {/* Phase: submitting */}
-            {phase === 'submitting' && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 2,
-                  py: 8,
-                }}
-              >
-                <CircularProgress size={40} />
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Invio ai connettori…
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {distinctConnectors.join(' · ')}
-                </Typography>
-              </Box>
-            )}
-
-            {/* Phase: result */}
-            {phase === 'result' && (
-              <StepResult
-                results={importResults}
-                onReset={handleReset}
-                onGoToLog={() => navigate(importId ? `/log/${importId}` : '/log')}
-              />
-            )}
-
-            {/* Phase: form */}
-            {phase === 'form' && (
-              <>
-                {step === 'upload' && (
                   <Box>
-                    {formatError && (
-                      <Alert severity="error" sx={{ mb: 2 }} data-testid="import-format-error">
-                        {formatError}
-                      </Alert>
-                    )}
-                    <FileUpload key={fileKey} onParsed={handleParsed} />
-
-                    {/* Template hint card */}
-                    <Box
+                    <Typography
                       sx={{
-                        mt: 2.5,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 2,
-                        bgcolor: 'grey.50',
-                        p: '14px 16px',
+                        fontFamily: 'monospace',
+                        fontSize: '0.6875rem',
+                        color: 'primary.main',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
                       }}
                     >
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          mb: 1.25,
-                        }}
+                      {phase === 'submitting' ? 'Invio in corso' : panelStepLabel}
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, mb: 0.5 }}>
+                      {phase === 'submitting' ? 'Importazione' : panelHeadTitle}
+                    </Typography>
+                    {phase === 'form' && (
+                      <Typography
+                        sx={{ fontSize: '0.8125rem', color: 'text.secondary', maxWidth: '64ch' }}
                       >
-                        <InfoOutlinedIcon sx={{ fontSize: 13, color: 'text.secondary' }} />
-                        <Typography
-                          sx={{
-                            fontSize: '0.6875rem',
-                            fontWeight: 600,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                            color: 'text.secondary',
-                          }}
-                        >
-                          Template aziendale standard
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                        {['Data', 'Progetto', 'Task', 'Ore', 'Note'].map((col) => (
+                        {panelHeadSubtitle}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  {/* Summary badges — solo in step preview */}
+                  {phase === 'form' && step === 'preview' && entries.length > 0 && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        flexWrap: 'wrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Chip
+                        label={`${validRowCount} valide`}
+                        color="success"
+                        size="small"
+                        sx={{ fontWeight: 600 }}
+                      />
+                      {warningRowCount > 0 && (
+                        <Chip
+                          label={`${warningRowCount} con warning`}
+                          color="warning"
+                          size="small"
+                          icon={<WarningAmberOutlinedIcon />}
+                          sx={{ fontWeight: 600 }}
+                        />
+                      )}
+                      <Chip
+                        label={`${importableRows}/${entries.length} righe pronte`}
+                        color="primary"
+                        size="small"
+                        sx={{ fontWeight: 600 }}
+                      />
+                      {hasSuggestions && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <Box
-                            key={col}
-                            component="span"
                             sx={{
-                              fontFamily: 'monospace',
-                              fontSize: '0.75rem',
-                              px: 1,
-                              py: 0.25,
-                              borderRadius: 10,
-                              bgcolor: 'background.paper',
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              color: 'text.secondary',
+                              width: 14,
+                              height: 14,
+                              borderRadius: 0.5,
+                              bgcolor: 'info.lighter',
+                              border: '1px dashed',
+                              borderColor: 'info.light',
+                              flexShrink: 0,
                             }}
-                          >
-                            {col}
-                          </Box>
-                        ))}
-                      </Box>
+                          />
+                          <Typography sx={{ fontSize: '0.6875rem', color: 'text.secondary' }}>
+                            = suggerito
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
-                  </Box>
-                )}
-
-                {step === 'preview' && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {hasSuggestions && (
-                      <Alert
-                        severity="info"
-                        icon={<AutoAwesomeIcon fontSize="inherit" />}
-                        data-testid="preview-suggestions-alert"
-                      >
-                        <AlertTitle>Assegnazioni pre-compilate</AlertTitle>
-                        Le associazioni sono suggerite in base allo storico. Sono sempre
-                        modificabili: apri una riga per cambiarle.
-                      </Alert>
-                    )}
-                    <PreviewTable
-                      entries={entries}
-                      warnings={warnings}
-                      assignmentsByRow={assignments}
-                      onAssign={setModalRow}
-                    />
-                    {suggestionsLoading && (
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          color: 'text.secondary',
-                        }}
-                      >
-                        <CircularProgress size={12} />
-                        <Typography variant="caption">Caricamento suggerimenti…</Typography>
-                      </Box>
-                    )}
-                  </Box>
-                )}
-
-                {step === 'confirm' && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {submitError && (
-                      <Alert severity="error" data-testid="import-submit-error">
-                        <AlertTitle>Importazione non riuscita</AlertTitle>
-                        {submitError}
-                      </Alert>
-                    )}
-                    <StepConfirm entries={entries} period={period} />
-                  </Box>
-                )}
-              </>
-            )}
-          </Box>
-
-          {/* Wizard footer — solo in phase 'form' */}
-          {phase === 'form' && (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                p: '16px 28px',
-                borderTop: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'grey.50',
-              }}
-            >
-              {/* Left */}
-              {step === 'upload' ? (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.75,
-                    color: 'text.secondary',
-                  }}
-                >
-                  <InfoOutlinedIcon sx={{ fontSize: 13 }} />
-                  <Typography variant="caption">
-                    Il file resta in locale fino alla conferma.
-                  </Typography>
+                  )}
                 </Box>
-              ) : (
-                <Button
-                  variant="text"
-                  color="inherit"
-                  startIcon={<ArrowBackIcon />}
-                  onClick={step === 'preview' ? handleBack : handleBackToPreview}
-                  data-testid={step === 'preview' ? 'preview-btn-back' : 'confirm-btn-back'}
-                >
-                  Indietro
-                </Button>
               )}
 
-              {/* Right */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                {step === 'preview' && importableRows === 0 && (
+              {/* Panel body */}
+              <Box sx={{ p: '24px 28px' }}>
+                {/* Phase: submitting */}
+                {phase === 'submitting' && (
                   <Box
                     sx={{
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
-                      gap: 0.75,
-                      color: 'text.secondary',
+                      gap: 2,
+                      py: 8,
                     }}
                   >
-                    <WarningAmberOutlinedIcon sx={{ fontSize: 13 }} />
-                    <Typography variant="caption">
-                      Assegna almeno una riga per procedere.
+                    <CircularProgress size={40} />
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      Invio ai connettori…
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {distinctConnectors.join(' · ')}
                     </Typography>
                   </Box>
                 )}
 
-                {step === 'upload' && (
-                  <Button
-                    variant="contained"
-                    endIcon={<ArrowForwardIcon />}
-                    disabled={!hasFile}
-                    onClick={handleNextToPreview}
-                    data-testid="upload-btn-next"
-                  >
-                    Avanti
-                  </Button>
+                {/* Phase: result */}
+                {phase === 'result' && (
+                  <StepResult
+                    results={importResults}
+                    onReset={handleReset}
+                    onGoToLog={() => navigate(importId ? `/log/${importId}` : '/log')}
+                  />
                 )}
 
-                {step === 'preview' && (
-                  <Button
-                    variant="contained"
-                    endIcon={<ArrowForwardIcon />}
-                    disabled={importableRows === 0}
-                    onClick={handleNextToConfirm}
-                    data-testid="preview-btn-next"
-                  >
-                    Avanti
-                  </Button>
-                )}
+                {/* Phase: form */}
+                {phase === 'form' && (
+                  <>
+                    {step === 'source' && (
+                      <SourceSelector
+                        connectors={connectors}
+                        connectorTypes={connectorTypes}
+                        value={source}
+                        onSelect={handleSelectSource}
+                      />
+                    )}
 
-                {step === 'confirm' && (
-                  <Button
-                    variant="contained"
-                    color="error"
-                    onClick={handleSubmit}
-                    data-testid="confirm-btn-submit"
-                  >
-                    Conferma importazione
-                  </Button>
+                    {step === 'input' && source?.kind === 'excel' && (
+                      <Box>
+                        {formatError && (
+                          <Alert severity="error" sx={{ mb: 2 }} data-testid="import-format-error">
+                            {formatError}
+                          </Alert>
+                        )}
+                        <FileUpload key={fileKey} onParsed={handleParsed} />
+
+                        {/* Template hint card */}
+                        <Box
+                          sx={{
+                            mt: 2.5,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 2,
+                            bgcolor: 'grey.50',
+                            p: '14px 16px',
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              mb: 1.25,
+                            }}
+                          >
+                            <InfoOutlinedIcon sx={{ fontSize: 13, color: 'text.secondary' }} />
+                            <Typography
+                              sx={{
+                                fontSize: '0.6875rem',
+                                fontWeight: 600,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                color: 'text.secondary',
+                              }}
+                            >
+                              Template aziendale standard
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                            {['Data', 'Progetto', 'Task', 'Ore', 'Note'].map((col) => (
+                              <Box
+                                key={col}
+                                component="span"
+                                sx={{
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.75rem',
+                                  px: 1,
+                                  py: 0.25,
+                                  borderRadius: 10,
+                                  bgcolor: 'background.paper',
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                  color: 'text.secondary',
+                                }}
+                              >
+                                {col}
+                              </Box>
+                            ))}
+                          </Box>
+                        </Box>
+                      </Box>
+                    )}
+
+                    {step === 'input' && source?.kind === 'connector' && (
+                      <SourceFetchPanel
+                        key={source.label}
+                        connectorLabel={source.label}
+                        serviceLabel={source.serviceLabel}
+                        onFetched={handleSourceFetched}
+                      />
+                    )}
+
+                    {step === 'preview' && (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {hasSuggestions && (
+                          <Alert
+                            severity="info"
+                            icon={<AutoAwesomeIcon fontSize="inherit" />}
+                            data-testid="preview-suggestions-alert"
+                          >
+                            <AlertTitle>Assegnazioni pre-compilate</AlertTitle>
+                            Le associazioni sono suggerite in base allo storico. Sono sempre
+                            modificabili: apri una riga per cambiarle.
+                          </Alert>
+                        )}
+                        <PreviewTable
+                          entries={entries}
+                          warnings={warnings}
+                          assignmentsByRow={assignments}
+                          onAssign={setModalRow}
+                        />
+                        {suggestionsLoading && (
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              color: 'text.secondary',
+                            }}
+                          >
+                            <CircularProgress size={12} />
+                            <Typography variant="caption">Caricamento suggerimenti…</Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    )}
+
+                    {step === 'confirm' && (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {submitError && (
+                          <Alert severity="error" data-testid="import-submit-error">
+                            <AlertTitle>Importazione non riuscita</AlertTitle>
+                            {submitError}
+                          </Alert>
+                        )}
+                        <StepConfirm entries={entries} period={period} />
+                      </Box>
+                    )}
+                  </>
                 )}
               </Box>
-            </Box>
-          )}
-        </Paper>
+
+              {/* Wizard footer — solo in phase 'form' */}
+              {phase === 'form' && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: '16px 28px',
+                    borderTop: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'grey.50',
+                  }}
+                >
+                  {/* Left */}
+                  {step === 'source' ? (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.75,
+                        color: 'text.secondary',
+                      }}
+                    >
+                      <InfoOutlinedIcon sx={{ fontSize: 13 }} />
+                      <Typography variant="caption">
+                        Scegli una card per continuare: l'importazione parte sempre da qui.
+                      </Typography>
+                    </Box>
+                  ) : step === 'input' && wizardMode === 'with-source' ? (
+                    <Button
+                      variant="text"
+                      color="inherit"
+                      startIcon={<ArrowBackIcon />}
+                      onClick={handleBackToSource}
+                      data-testid="input-btn-back"
+                    >
+                      Indietro
+                    </Button>
+                  ) : step === 'input' ? (
+                    // wizardMode 'excel-only': è il primo step, non c'è un
+                    // precedente a cui tornare — niente pulsante Indietro (nascosto,
+                    // non disabilitato), stesso hint informativo di prima di E13.
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.75,
+                        color: 'text.secondary',
+                      }}
+                    >
+                      <InfoOutlinedIcon sx={{ fontSize: 13 }} />
+                      <Typography variant="caption">
+                        Il file resta in locale fino alla conferma.
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Button
+                      variant="text"
+                      color="inherit"
+                      startIcon={<ArrowBackIcon />}
+                      onClick={step === 'preview' ? handleBackToInput : handleBackToPreview}
+                      data-testid={step === 'preview' ? 'preview-btn-back' : 'confirm-btn-back'}
+                    >
+                      Indietro
+                    </Button>
+                  )}
+
+                  {/* Right */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    {step === 'preview' && importableRows === 0 && (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.75,
+                          color: 'text.secondary',
+                        }}
+                      >
+                        <WarningAmberOutlinedIcon sx={{ fontSize: 13 }} />
+                        <Typography variant="caption">
+                          Assegna almeno una riga per procedere.
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {step === 'input' && (
+                      <Button
+                        variant="contained"
+                        endIcon={<ArrowForwardIcon />}
+                        disabled={!hasInput}
+                        onClick={handleNextToPreview}
+                        data-testid="upload-btn-next"
+                      >
+                        Avanti
+                      </Button>
+                    )}
+
+                    {step === 'preview' && (
+                      <Button
+                        variant="contained"
+                        endIcon={<ArrowForwardIcon />}
+                        disabled={importableRows === 0}
+                        onClick={handleNextToConfirm}
+                        data-testid="preview-btn-next"
+                      >
+                        Avanti
+                      </Button>
+                    )}
+
+                    {step === 'confirm' && (
+                      <Button
+                        variant="contained"
+                        color="error"
+                        onClick={handleSubmit}
+                        data-testid="confirm-btn-submit"
+                      >
+                        Conferma importazione
+                      </Button>
+                    )}
+                  </Box>
+                </Box>
+              )}
+            </Paper>
+          </>
+        )}
       </Box>
 
       {/* Assign modal */}
@@ -999,7 +1187,7 @@ export default function ImportPage() {
           open={modalRow !== null}
           entry={entries[modalRow]}
           entryIndex={modalRow}
-          connectors={connectors}
+          connectors={destinationConnectors}
           onSave={handleSaveAssignments}
           onClose={() => setModalRow(null)}
         />

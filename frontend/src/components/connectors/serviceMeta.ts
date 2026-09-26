@@ -1,18 +1,14 @@
 import type { ServiceType } from '@/types'
 
+// Solo aspetto visuale (icona/colore/etichetta breve). I campi funzionali del
+// form (account_identifier_label, requires_base_url, secret_label, campi di
+// config…) arrivano dal catalogo `GET /api/connector-types` (vedi
+// useConnectorTypes) per evitare due fonti di verità sullo stesso schema.
 export interface ServiceMeta {
   name: string
   letter: string
   color: string
   desc: string
-  accountLabel: string
-  accountPlaceholder: string
-  hasBaseUrl: boolean
-  baseUrlPlaceholder?: string
-  hasDbName?: boolean
-  dbNameLabel?: string
-  dbNamePlaceholder?: string
-  secretLabel: string
 }
 
 export const SERVICE_META: Record<ServiceType, ServiceMeta> = {
@@ -21,46 +17,34 @@ export const SERVICE_META: Record<ServiceType, ServiceMeta> = {
     letter: 'J',
     color: '#2563eb',
     desc: 'Issue tracking',
-    accountLabel: 'Email Atlassian',
-    accountPlaceholder: 'mario@azienda.atlassian.net',
-    hasBaseUrl: true,
-    baseUrlPlaceholder: 'https://azienda.atlassian.net',
-    secretLabel: 'API Token',
   },
   odoo: {
     name: 'Odoo',
     letter: 'O',
     color: '#7c3aed',
     desc: 'ERP · timesheet',
-    accountLabel: 'Username',
-    accountPlaceholder: 'mario.rossi',
-    hasBaseUrl: true,
-    baseUrlPlaceholder: 'https://azienda.odoo.com',
-    hasDbName: true,
-    dbNameLabel: 'Database Odoo',
-    dbNamePlaceholder: 'nome_database',
-    secretLabel: 'API Key',
+  },
+  clockify: {
+    name: 'Clockify',
+    letter: 'C',
+    color: '#03a9f4',
+    desc: 'Time tracking',
   },
   linear: {
     name: 'Linear',
     letter: 'L',
     color: '#0f172a',
     desc: 'Project tracking',
-    accountLabel: 'Email Linear',
-    accountPlaceholder: 'mario@azienda.it',
-    hasBaseUrl: false,
-    secretLabel: 'API Token',
   },
   asana: {
     name: 'Asana',
     letter: 'A',
     color: '#db2777',
     desc: 'Work management',
-    accountLabel: 'Email Asana',
-    accountPlaceholder: 'mario@azienda.it',
-    hasBaseUrl: false,
-    secretLabel: 'Personal Access Token',
   },
 }
 
+// Destinazioni disponibili nel wizard di importazione (scrittura). Clockify è
+// una sorgente (E13): non compare qui, coerentemente con il fatto che i log
+// di importazione riportano solo i backend su cui si è scritto.
 export const ALL_SERVICES: ServiceType[] = ['jira', 'odoo', 'linear', 'asana']

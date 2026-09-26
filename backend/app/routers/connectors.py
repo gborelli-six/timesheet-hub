@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
+from app.connector_types import ConfigValidationError, get_spec, validate_config
 from app.core.rbac import CurrentUser, UserRole, require_role
 from app.core.security import encrypt_secret
 from app.db.session import get_db
@@ -24,7 +25,10 @@ class ConnectorUpsertRequest(BaseModel):
     account_identifier: str | None = None
     base_url: str | None = None
     secret: str | None = Field(default=None, max_length=4096)
-    db_name: str | None = None
+    # Campi specifici del tipo di servizio (es. db_name per Odoo). Validati
+    # contro il catalogo: un config errato fallisce al salvataggio, non al
+    # primo import.
+    config: dict | None = None
 
 
 class ConnectorOut(BaseModel):
@@ -32,12 +36,35 @@ class ConnectorOut(BaseModel):
     service: str
     base_url: str | None
     account_identifier: str | None
-    db_name: str | None
+    config: dict
     configured: bool
     needs_reauth: bool
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+def _validate_config_or_422(service: UserTokenService, config: dict | None) -> dict:
+    try:
+        return validate_config(service, config)
+    except ConfigValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+
+
+def _to_out(token: UserToken) -> ConnectorOut:
+    return ConnectorOut(
+        label=token.label,
+        service=token.service,
+        base_url=token.base_url,
+        account_identifier=token.account_identifier,
+        config=token.config or {},
+        configured=True,
+        needs_reauth=token.needs_reauth,
+        updated_at=token.updated_at,
+    )
 
 
 @router.get("/", response_model=list[ConnectorOut])
@@ -46,19 +73,7 @@ def list_connectors(
     db: Session = Depends(get_db),
 ) -> list[ConnectorOut]:
     tokens = db.query(UserToken).filter(UserToken.user_id == user.id).all()
-    return [
-        ConnectorOut(
-            label=t.label,
-            service=t.service,
-            base_url=t.base_url,
-            account_identifier=t.account_identifier,
-            db_name=t.db_name,
-            configured=True,
-            needs_reauth=t.needs_reauth,
-            updated_at=t.updated_at,
-        )
-        for t in tokens
-    ]
+    return [_to_out(t) for t in tokens]
 
 
 @router.put("/{label}", response_model=ConnectorOut)
@@ -86,6 +101,14 @@ def upsert_connector(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="secret è obbligatorio per creare un nuovo connettore",
             )
+        # Un tipo senza implementazione (linear, asana) si creerebbe senza
+        # errori per poi fallire al primo utilizzo: meglio rifiutarlo qui.
+        if not get_spec(body.service).available:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Il servizio '{body.service}' non è ancora disponibile",
+            )
+        config = _validate_config_or_422(body.service, body.config)
         connector_id = uuid4()
         secret_enc, nonce, key_version = encrypt_secret(
             body.secret, str(user_id), str(connector_id)
@@ -99,7 +122,7 @@ def upsert_connector(
             if "account_identifier" in body.model_fields_set
             else None,
             base_url=body.base_url if "base_url" in body.model_fields_set else None,
-            db_name=body.db_name if "db_name" in body.model_fields_set else None,
+            config=config,
             secret_enc=secret_enc,
             nonce=nonce,
             key_version=key_version,
@@ -119,21 +142,14 @@ def upsert_connector(
             token.account_identifier = body.account_identifier
         if "base_url" in body.model_fields_set:
             token.base_url = body.base_url
-        if "db_name" in body.model_fields_set:
-            token.db_name = body.db_name
+        if "config" in body.model_fields_set:
+            # Sostituzione, non merge: il form invia sempre il config completo,
+            # e un merge renderebbe impossibile svuotare un campo opzionale.
+            token.config = _validate_config_or_422(token.service, body.config)
 
     db.commit()
     db.refresh(token)
-    return ConnectorOut(
-        label=token.label,
-        service=token.service,
-        base_url=token.base_url,
-        account_identifier=token.account_identifier,
-        db_name=token.db_name,
-        configured=True,
-        needs_reauth=token.needs_reauth,
-        updated_at=token.updated_at,
-    )
+    return _to_out(token)
 
 
 @router.delete("/{label}", status_code=status.HTTP_200_OK)

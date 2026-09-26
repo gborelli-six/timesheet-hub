@@ -27,6 +27,7 @@ Ordine di rilascio **employee-first** (vedi `docs/timesheet-hub-roadmap.md` v0.5
 | E9b | 0 | 0 | TBD | 0 | TBD | log HR — storie just-in-time |
 | E11 | 0 | 0 | TBD | 0 | TBD | adapter aggiuntivi — post-v1 |
 | E12 | 0 | 0 | TBD | 0 | TBD | pannello per-utente mappature riga↔connettore — post-v1 |
+| E13 | 0 | TBD | TBD | 0 | TBD | sorgenti di importazione via API (Clockify) — in corso |
 
 ## E1 — Completata
 

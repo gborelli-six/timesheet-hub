@@ -62,6 +62,9 @@ class StubAdapter(TimesheetAdapter):
         marker = config.marker or ""
         if "E2E__DOWN" in marker:
             raise AdapterConnectionError("Stub: backend non raggiungibile")
+
+        # Fallimento per-connettore: il marker sul connettore fa fallire ogni
+        # riga inviata a quel connettore.
         if "E2E__FAIL" in marker:
             errors = [
                 RowError(row=i, message="Stub: errore applicativo")
@@ -70,7 +73,27 @@ class StubAdapter(TimesheetAdapter):
             return ImportResult(
                 success_count=0, error_count=len(entries), errors=errors
             )
-        return ImportResult(success_count=len(entries), error_count=0, errors=[])
+
+        # Fallimento per-riga: ADR-003-D vuole che il marcatore viva sui valori
+        # d'input, ma le entry che arrivano qui non portano progetto/task —
+        # il router le riduce a data/ore/note più gli id remoti. Il marcatore
+        # viaggia quindi sul task remoto dell'assegnazione, che è l'unico
+        # valore per-riga visibile all'adapter. Serve a costruire un import
+        # *parziale*, impossibile col solo marker di connettore quando più
+        # righe condividono lo stesso connettore.
+        errors = [
+            RowError(row=i, message="Stub: riga rifiutata dal backend esterno")
+            for i, entry in enumerate(entries)
+            if any(
+                "E2E__FAIL" in (a.task_id or "") or "E2E__FAIL" in (a.project_id or "")
+                for a in entry.connector_assignments
+            )
+        ]
+        return ImportResult(
+            success_count=len(entries) - len(errors),
+            error_count=len(errors),
+            errors=errors,
+        )
 
     def get_projects(
         self, config: AdapterConfig, query: str | None = None
