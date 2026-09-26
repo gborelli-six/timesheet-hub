@@ -8,7 +8,7 @@ Riferimenti: `docs/timesheet-hub-roadmap.md` · `docs/adr/ADR-001` · `docs/adr/
 
 ## Avanzamento per epica
 
-Ordine di rilascio **employee-first** (vedi `docs/timesheet-hub-roadmap.md` v0.5): E4 → E5 → E6 → E7 → **E8a** → **E9a** [🏁 Employee MVP] → **E9c** → **E9d** → **E3bis** → E10 [🏁 Admin] → **E8b** → **E9b** [🏁 HR] → E11.
+Ordine di rilascio **employee-first** (vedi `docs/timesheet-hub-roadmap.md` v0.5): E4 → E5 → E6 → E7 → **E8a** → **E9a** [🏁 Employee MVP] → **E9c** → **E9d** → **E13** → **E3bis** → E10 [🏁 Admin] → **E8b** → **E9b** [🏁 HR] → E11.
 
 | Epica | Done | In Progress | Todo | Blocked | Totale | Note |
 |---|---|---|---|---|---|---|
@@ -29,6 +29,7 @@ Ordine di rilascio **employee-first** (vedi `docs/timesheet-hub-roadmap.md` v0.5
 | E8b | 0 | 0 | TBD | 0 | TBD | wizard HR — storie just-in-time |
 | E11 | 0 | 0 | TBD | 0 | TBD | adapter aggiuntivi — post-v1 |
 | E12 | 0 | 0 | TBD | 0 | TBD | pannello per-utente mappature riga↔connettore — post-v1 |
+| E13 | 0 | 0 | 0 | 0 | 0 ✅ | sorgenti di importazione via API (Clockify) — completata (nessuna storia tracciata in questo file) |
 
 ## E1 — Completata
 
@@ -161,7 +162,7 @@ Docs: `docs/guides/log-importazioni.md`, aggiornamenti `001-functional-spec.md`,
 | STORY-E9a-8 | Documentazione (Definition of Done) | Docs | ✅ Done |
 
 ## Prossima epica da implementare
-**E3bis** (gestione ruoli) — E9d completata. Prossimo: E3bis → E10 (milestone Admin).
+**E3bis** (gestione ruoli) — E9d ed E13 completate. Prossimo: E3bis → E10 (milestone Admin).
 
 ## Roadmap epiche successive (storie da scrivere just-in-time)
 Le epiche E3bis, E10, E8b, E9b non hanno ancora file storie: si dettagliano al momento dell'inserimento in sprint, nell'ordine di rilascio sopra.

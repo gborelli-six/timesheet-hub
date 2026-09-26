@@ -8,11 +8,13 @@ from app.core.config import settings
 from app.routers import (
     adapters,
     auth,
+    connector_types,
     connectors,
     health,
     imports,
     mappings,
     reports,
+    sources,
     users,
 )
 from app.routers.imports import import_worker
@@ -52,8 +54,10 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(users.api_router)
 app.include_router(connectors.router, prefix="/api/me/connectors")
 app.include_router(adapters.router)
+app.include_router(connector_types.router)
 app.include_router(mappings.router)
 app.include_router(imports.router)
+app.include_router(sources.router)
 app.include_router(reports.router)
 
 # Import lazy: il router test-only è incluso solo col flag attivo. Il modulo è
@@ -65,3 +69,4 @@ if settings.e2e_test_mode:
     app.include_router(e2e_test_router.router, prefix="/api")
 
     from app.adapters import stub  # noqa: F401 — auto-registra StubAdapter nel registry
+    from app.sources import stub as source_stub  # noqa: F401 — idem per StubSource

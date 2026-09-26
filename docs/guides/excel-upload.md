@@ -14,6 +14,14 @@ Questa guida spiega come caricare il proprio file timesheet Excel in Timesheet H
 
 ---
 
+## L'upload Excel è una delle sorgenti possibili
+
+Dal file Excel non è l'unico modo per importare le ore: se hai configurato un connettore sorgente (es. Clockify), il wizard di importazione mostra prima uno step **"Sorgente"** in cui scegli tra "File Excel" e le tue sorgenti API — vedi [Come importare da Clockify](importare-da-clockify.md).
+
+Se non hai configurato nessuna sorgente API, il wizard parte **direttamente** da questo step di upload, esattamente come descritto qui sotto: nessuna schermata in più, nessun cambiamento nel flusso.
+
+---
+
 ## Il file Excel
 
 Il file deve seguire il **template aziendale standard**. Colonne richieste (intestazioni esatte):

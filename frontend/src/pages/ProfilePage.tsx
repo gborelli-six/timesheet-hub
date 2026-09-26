@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -8,7 +9,9 @@ import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 
 import AddIcon from '@mui/icons-material/Add'
+import CloudDownloadOutlinedIcon from '@mui/icons-material/CloudDownloadOutlined'
 import PlugConnectedIcon from '@mui/icons-material/PowerOutlined'
+import UploadOutlinedIcon from '@mui/icons-material/UploadOutlined'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 
 import { LoadingOverlay } from '@/components/ui'
@@ -16,19 +19,39 @@ import { AddConnectorDrawer } from '@/components/connectors/AddConnectorDrawer'
 import { ConnectorRow } from '@/components/connectors/ConnectorRow'
 import { useAuth } from '@/hooks/useAuth'
 import { useConnectors } from '@/hooks/useConnectors'
+import { useConnectorTypes } from '@/hooks/useConnectorTypes'
+import type { ConnectorOut } from '@/types'
+
+type ConnectorKind = 'source' | 'destination'
 
 export default function ProfilePage() {
   const { data: me } = useAuth()
   const { data: connectors = [], isLoading, isError } = useConnectors()
+  const { data: connectorTypes = [] } = useConnectorTypes()
 
   const [expandedLabel, setExpandedLabel] = useState<string | null>(null)
-  const [addOpen, setAddOpen] = useState(false)
+  // Un drawer solo, ma filtrato sul sottoinsieme di tipi coerente con la
+  // sezione da cui è stato aperto: niente scelta di un Odoo da "Aggiungi
+  // sorgente" o viceversa.
+  const [addDrawerKind, setAddDrawerKind] = useState<ConnectorKind | null>(null)
 
   const handleToggle = (label: string) => {
     setExpandedLabel((prev) => (prev === label ? null : label))
   }
 
   const expiredCount = connectors.filter((c) => c.needs_reauth).length
+
+  // Un connettore è una sorgente o una destinazione a seconda del tipo di
+  // servizio dichiarato dal catalogo (`GET /api/connector-types`), non da un
+  // campo proprio: separarli in due liste evita di confondere "da qui leggo
+  // le ore" (Clockify) con "qui le scrivo" (Odoo, Jira), pur restando
+  // un'unica azione di aggiunta (drawer con scelta del servizio).
+  const isSourceConnector = (c: ConnectorOut) =>
+    connectorTypes.find((t) => t.service === c.service)?.is_source ?? false
+  const isDestinationConnector = (c: ConnectorOut) =>
+    connectorTypes.find((t) => t.service === c.service)?.is_destination ?? false
+  const sourceConnectors = connectors.filter(isSourceConnector)
+  const destinationConnectors = connectors.filter(isDestinationConnector)
 
   const roleLabel =
     me?.role === 'admin' ? 'Amministratore' : me?.role === 'hr' ? 'HR' : 'Dipendente'
@@ -204,55 +227,32 @@ export default function ProfilePage() {
       </Paper>
 
       {/* Section header */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 2,
-          mb: 2,
-        }}
-      >
-        <Box>
-          <Typography
-            variant="h4"
-            fontWeight={700}
-            sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}
-          >
-            <Box
-              sx={{
-                width: 4,
-                height: 18,
-                bgcolor: 'primary.main',
-                borderRadius: 0.5,
-                flexShrink: 0,
-              }}
-              aria-hidden
-            />
-            Connettori e token API
-          </Typography>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ pl: 1.75, display: 'block', mt: 0.5 }}
-          >
-            Ogni connettore può avere parametri specifici per il servizio. I token sono cifrati lato
-            server.
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setAddOpen(true)
-            setExpandedLabel(null)
-          }}
-          sx={{ flexShrink: 0, mt: 0.5 }}
-          data-testid="btn-add-connector"
+      <Box sx={{ mb: 2 }}>
+        <Typography
+          variant="h4"
+          fontWeight={700}
+          sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}
         >
-          Aggiungi connettore
-        </Button>
+          <Box
+            sx={{
+              width: 4,
+              height: 18,
+              bgcolor: 'primary.main',
+              borderRadius: 0.5,
+              flexShrink: 0,
+            }}
+            aria-hidden
+          />
+          Connettori e token API
+        </Typography>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ pl: 1.75, display: 'block', mt: 0.5 }}
+        >
+          Ogni connettore può avere parametri specifici per il servizio. I token sono cifrati lato
+          server.
+        </Typography>
       </Box>
 
       {/* Connector list */}
@@ -263,65 +263,148 @@ export default function ProfilePage() {
           Impossibile caricare i connettori. Riprova più tardi.
         </Alert>
       ) : (
-        <Paper
-          variant="outlined"
-          sx={{ borderRadius: 3, overflow: 'hidden' }}
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', gap: 3.5 }}
           data-testid="connector-list"
         >
-          {connectors.length === 0 ? (
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 1.5,
-                py: 8,
-                px: 4,
-                textAlign: 'center',
-                color: 'text.disabled',
-              }}
-            >
-              <PlugConnectedIcon sx={{ fontSize: 36, opacity: 0.3 }} />
-              <Typography fontWeight={600} color="text.secondary">
-                Nessun connettore configurato
-              </Typography>
-              <Typography variant="body2" color="text.disabled" sx={{ maxWidth: '40ch' }}>
-                Aggiungi il primo connettore per poter avviare le importazioni su un servizio
-                esterno.
-              </Typography>
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => setAddOpen(true)}
-                sx={{ mt: 1 }}
-                data-testid="btn-add-connector-empty"
-              >
-                Aggiungi connettore
-              </Button>
-            </Box>
-          ) : (
-            connectors.map((conn, idx) => (
-              <Box key={conn.label}>
-                {idx > 0 && <Divider />}
-                <ConnectorRow
-                  conn={conn}
-                  isExpanded={expandedLabel === conn.label}
-                  onToggle={() => handleToggle(conn.label)}
-                  data-testid={`connector-row-${conn.label}`}
-                />
-              </Box>
-            ))
-          )}
-        </Paper>
+          <ConnectorGroup
+            title="Sorgenti"
+            description="Da qui si leggono le ore già registrate."
+            icon={<CloudDownloadOutlinedIcon sx={{ fontSize: 18 }} />}
+            connectors={sourceConnectors}
+            emptyMessage="Nessuna sorgente configurata."
+            expandedLabel={expandedLabel}
+            onToggle={handleToggle}
+            addLabel="Aggiungi sorgente"
+            onAdd={() => {
+              setAddDrawerKind('source')
+              setExpandedLabel(null)
+            }}
+            data-testid="connector-group-sources"
+          />
+          <ConnectorGroup
+            title="Destinazioni"
+            description="Qui le ore vengono scritte."
+            icon={<UploadOutlinedIcon sx={{ fontSize: 18 }} />}
+            connectors={destinationConnectors}
+            emptyMessage="Nessuna destinazione configurata."
+            expandedLabel={expandedLabel}
+            onToggle={handleToggle}
+            addLabel="Aggiungi connettore"
+            onAdd={() => {
+              setAddDrawerKind('destination')
+              setExpandedLabel(null)
+            }}
+            data-testid="connector-group-destinations"
+          />
+        </Box>
       )}
 
       <AddConnectorDrawer
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
+        open={addDrawerKind !== null}
+        kind={addDrawerKind ?? 'source'}
+        onClose={() => setAddDrawerKind(null)}
         existingLabels={connectors.map((c) => c.label)}
-        data-testid="add-connector-drawer"
+        data-testid={
+          addDrawerKind === 'destination' ? 'add-destination-drawer' : 'add-source-drawer'
+        }
       />
+    </Box>
+  )
+}
+
+interface ConnectorGroupProps {
+  title: string
+  description: string
+  icon: ReactNode
+  connectors: ConnectorOut[]
+  emptyMessage: string
+  expandedLabel: string | null
+  onToggle: (label: string) => void
+  addLabel: string
+  onAdd: () => void
+  'data-testid': string
+}
+
+/** Una delle due sezioni (Sorgenti / Destinazioni) della lista connettori, con
+ * la propria azione di aggiunta sopra l'elenco. */
+function ConnectorGroup({
+  title,
+  description,
+  icon,
+  connectors,
+  emptyMessage,
+  expandedLabel,
+  onToggle,
+  addLabel,
+  onAdd,
+  'data-testid': testId,
+}: ConnectorGroupProps) {
+  return (
+    <Box data-testid={testId}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 2,
+          mb: 1,
+          pl: 0.25,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ color: 'text.disabled', display: 'flex' }}>{icon}</Box>
+          <Typography variant="subtitle2" fontWeight={700}>
+            {title}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            · {description}
+          </Typography>
+        </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<AddIcon fontSize="small" />}
+          onClick={onAdd}
+          sx={{ flexShrink: 0 }}
+          data-testid={`${testId}-btn-add`}
+        >
+          {addLabel}
+        </Button>
+      </Box>
+      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        {connectors.length === 0 ? (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 1.5,
+              py: 5,
+              px: 4,
+              textAlign: 'center',
+              color: 'text.disabled',
+            }}
+          >
+            <PlugConnectedIcon sx={{ fontSize: 32, opacity: 0.3 }} />
+            <Typography variant="body2" color="text.disabled" sx={{ maxWidth: '40ch' }}>
+              {emptyMessage}
+            </Typography>
+          </Box>
+        ) : (
+          connectors.map((conn, idx) => (
+            <Box key={conn.label}>
+              {idx > 0 && <Divider />}
+              <ConnectorRow
+                conn={conn}
+                isExpanded={expandedLabel === conn.label}
+                onToggle={() => onToggle(conn.label)}
+                data-testid={`connector-row-${conn.label}`}
+              />
+            </Box>
+          ))
+        )}
+      </Paper>
     </Box>
   )
 }

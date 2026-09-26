@@ -2,6 +2,7 @@ from enum import StrEnum
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     ForeignKey,
     LargeBinary,
@@ -10,10 +11,16 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy import Enum as SQLAlchemyEnum
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
+
+# JSONB su PostgreSQL (indicizzabile, è ciò che la migrazione 0013 crea), JSON
+# generico sugli altri dialetti: i test unit sui modelli girano su SQLite, che
+# non conosce JSONB.
+_JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 
 class UserTokenService(StrEnum):
@@ -21,6 +28,7 @@ class UserTokenService(StrEnum):
     odoo = "odoo"
     linear = "linear"
     asana = "asana"
+    clockify = "clockify"
 
 
 class UserToken(TimestampMixin, Base):
@@ -56,7 +64,13 @@ class UserToken(TimestampMixin, Base):
     needs_reauth: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
-    db_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Configurazione specifica per tipo di servizio (es. db_name per Odoo).
+    # Lo schema dei campi ammessi è dichiarato dal catalogo in
+    # app/connector_types.py. Solo dati NON sensibili: i segreti vivono
+    # in secret_enc, cifrati (ADR-005).
+    config: Mapped[dict] = mapped_column(
+        _JSONType, nullable=False, default=dict, server_default="{}"
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )

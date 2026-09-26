@@ -20,6 +20,7 @@ import KeyIcon from '@mui/icons-material/Key'
 import LockIcon from '@mui/icons-material/Lock'
 import { ConfirmDialog, StatusBadge } from '@/components/ui'
 import { useDeleteConnector, useUpsertConnector } from '@/hooks/useConnectors'
+import { useConnectorTypes } from '@/hooks/useConnectorTypes'
 import type { ConnectorOut, ServiceType } from '@/types'
 
 import { SERVICE_META } from './serviceMeta'
@@ -40,10 +41,12 @@ export function ConnectorRow({
   const meta = SERVICE_META[conn.service as ServiceType]
   const upsert = useUpsertConnector()
   const deleteConnector = useDeleteConnector()
+  const { data: connectorTypes = [] } = useConnectorTypes()
+  const spec = connectorTypes.find((t) => t.service === conn.service)
 
   const [accountIdentifier, setAccountIdentifier] = useState(conn.account_identifier ?? '')
   const [baseUrl, setBaseUrl] = useState(conn.base_url ?? '')
-  const [dbName, setDbName] = useState(conn.db_name ?? '')
+  const [config, setConfig] = useState<Record<string, string>>(conn.config ?? {})
   const [secret, setSecret] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -52,26 +55,31 @@ export function ConnectorRow({
   useEffect(() => {
     setAccountIdentifier(conn.account_identifier ?? '')
     setBaseUrl(conn.base_url ?? '')
-    setDbName(conn.db_name ?? '')
+    setConfig(conn.config ?? {})
     setSecret('')
     setSaveSuccess(false)
-  }, [conn.account_identifier, conn.base_url, conn.db_name, conn.label])
+  }, [conn.account_identifier, conn.base_url, conn.config, conn.label])
+
+  const setConfigField = (key: string, value: string) => {
+    setConfig((prev) => ({ ...prev, [key]: value }))
+  }
 
   const handleSave = () => {
     const body: {
       account_identifier?: string | null
       base_url?: string | null
-      db_name?: string | null
+      config?: Record<string, string>
       secret?: string
     } = {}
     if (accountIdentifier !== (conn.account_identifier ?? '')) {
       body.account_identifier = accountIdentifier || null
     }
-    if (meta.hasBaseUrl && baseUrl !== (conn.base_url ?? '')) {
+    if (spec?.requires_base_url && baseUrl !== (conn.base_url ?? '')) {
       body.base_url = baseUrl || null
     }
-    if (meta.hasDbName && dbName !== (conn.db_name ?? '')) {
-      body.db_name = dbName || null
+    // Sostituzione, non merge: coerente con la semantica del PUT lato backend.
+    if (JSON.stringify(config) !== JSON.stringify(conn.config ?? {})) {
+      body.config = config
     }
     if (secret) body.secret = secret
 
@@ -154,7 +162,13 @@ export function ConnectorRow({
             sx={{ color: 'text.secondary', fontFamily: 'monospace', display: 'block' }}
             noWrap
           >
-            {meta.name} · {conn.account_identifier ?? <em>non configurato</em>}
+            {meta.name}
+            {spec?.requires_account_identifier && (
+              <>
+                {' · '}
+                {conn.account_identifier || <em>non configurato</em>}
+              </>
+            )}
           </Typography>
         </Box>
 
@@ -223,48 +237,48 @@ export function ConnectorRow({
           )}
 
           <Grid container spacing={2} alignItems="flex-start">
-            {/* account_identifier */}
-            <Grid size={{ xs: 12, sm: meta.hasBaseUrl ? 6 : 12 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label={meta.accountLabel}
-                value={accountIdentifier}
-                onChange={(e) => setAccountIdentifier(e.target.value)}
-                placeholder={meta.accountPlaceholder}
-                data-testid={`${testId}-account-identifier`}
-              />
-            </Grid>
+            {/* account_identifier (condizionale) */}
+            {spec?.requires_account_identifier && (
+              <Grid size={{ xs: 12, sm: spec?.requires_base_url ? 6 : 12 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={spec?.account_identifier_label ?? 'Identificativo account'}
+                  value={accountIdentifier}
+                  onChange={(e) => setAccountIdentifier(e.target.value)}
+                  data-testid={`${testId}-account-identifier`}
+                />
+              </Grid>
+            )}
 
             {/* base_url (solo per i servizi che lo usano) */}
-            {meta.hasBaseUrl && (
-              <Grid size={{ xs: 12, sm: 6 }}>
+            {spec?.requires_base_url && (
+              <Grid size={{ xs: 12, sm: spec?.requires_account_identifier ? 6 : 12 }}>
                 <TextField
                   fullWidth
                   size="small"
                   label="URL istanza"
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder={meta.baseUrlPlaceholder}
                   data-testid={`${testId}-base-url`}
                 />
               </Grid>
             )}
 
-            {/* db_name (solo per i servizi che lo usano) */}
-            {meta.hasDbName && (
-              <Grid size={{ xs: 12, sm: 6 }}>
+            {/* Campi di configurazione specifici del servizio (dal catalogo) */}
+            {(spec?.config_fields ?? []).map((field) => (
+              <Grid key={field.key} size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   size="small"
-                  label={meta.dbNameLabel}
-                  value={dbName}
-                  onChange={(e) => setDbName(e.target.value)}
-                  placeholder={meta.dbNamePlaceholder}
-                  data-testid={`${testId}-db-name`}
+                  label={field.label}
+                  value={config[field.key] ?? ''}
+                  onChange={(e) => setConfigField(field.key, e.target.value)}
+                  helperText={field.help ?? undefined}
+                  data-testid={`${testId}-config-${field.key}`}
                 />
               </Grid>
-            )}
+            ))}
 
             {/* Secret write-only */}
             <Grid size={12}>
@@ -274,7 +288,7 @@ export function ConnectorRow({
                 type="password"
                 label={
                   <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {meta.secretLabel}
+                    {spec?.secret_label ?? 'Segreto'}
                     <Typography
                       component="span"
                       sx={{
@@ -307,9 +321,10 @@ export function ConnectorRow({
                   },
                 }}
                 helperText={
-                  conn.configured
+                  spec?.secret_help ??
+                  (conn.configured
                     ? 'Lascia vuoto per mantenere il token esistente.'
-                    : 'Il token verrà cifrato lato server e non sarà mai restituito in chiaro.'
+                    : 'Il token verrà cifrato lato server e non sarà mai restituito in chiaro.')
                 }
                 data-testid={`${testId}-secret`}
               />

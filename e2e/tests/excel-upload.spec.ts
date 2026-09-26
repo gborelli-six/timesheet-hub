@@ -57,6 +57,9 @@ test(
     await page
       .getByTestId("file-upload-input")
       .setInputFiles(path.join(XLSX_DIR, "anomalie.xlsx"));
+    // Dal wizard multi-step di E8a il passaggio alla preview richiede un click
+    // esplicito: il parsing da solo non avanza più.
+    await page.getByTestId("upload-btn-next").click();
 
     const alert = page.getByTestId("preview-warning-alert");
     await expect(alert).toBeVisible();
@@ -79,10 +82,11 @@ test(
     await loginAs("employee");
     await page.goto("/import");
 
-    // Prima upload — va a step 2
+    // Prima upload — va a step 2 (dopo il click esplicito su Avanti, E8a)
     await page
       .getByTestId("file-upload-input")
       .setInputFiles(path.join(XLSX_DIR, "anomalie.xlsx"));
+    await page.getByTestId("upload-btn-next").click();
     await expect(page.getByTestId("preview-btn-back")).toBeVisible();
 
     // Torna a step 1
@@ -95,6 +99,7 @@ test(
     await page
       .getByTestId("file-upload-input")
       .setInputFiles(path.join(XLSX_DIR, "happy.xlsx"));
+    await page.getByTestId("upload-btn-next").click();
 
     // Nessun alert warning e nessuna riga evidenziata
     await expect(page.getByTestId("preview-warning-alert")).not.toBeAttached();

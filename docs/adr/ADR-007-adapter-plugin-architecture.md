@@ -10,6 +10,8 @@
 
 Timesheet Hub deve inviare le voci timesheet a backend eterogenei (Odoo, Jira, Linear, Asana) e recuperare da essi le liste di progetti e task per l'autocomplete del wizard. I backend sono funzionalmente diversi (JSON-RPC, REST, GraphQL) ma logicamente equivalenti dal punto di vista dell'applicazione: ogni adapter riceve le stesse informazioni in ingresso e produce gli stessi tipi in uscita.
 
+> **Nota (E13)**: `TimesheetAdapter`, descritto in questo ADR, è il layer di **destinazione** — dove le ore vengono scritte. Per il layer simmetrico di **sorgente** — da dove le ore vengono lette via API (Clockify) — vedi `ADR-008`, che introduce il secondo ABC `TimesheetSource` riusando `ServiceType`, la gerarchia di eccezioni e `ValidationResult` definiti qui.
+
 Requisiti:
 - Aggiungere un nuovo backend non deve richiedere modifiche al core applicativo.
 - Il layer adapter deve essere sostituibile in fase di test E2E senza un backend reale.

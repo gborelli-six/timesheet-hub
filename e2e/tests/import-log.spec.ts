@@ -41,10 +41,14 @@ const SEED_ROW_0 = {
   remote_task_name: "E2E Dev Task",
 };
 
+// Il marcatore deve arrivare fino all'adapter: le entry inviate a submit()
+// non portano il task Excel, quindi E2E__FAIL viaggia sul task remoto — è
+// l'unico valore per-riga che lo StubAdapter può vedere. Senza questo, le due
+// righe condividono il connettore odoo-test e l'import non è mai parziale.
 const SEED_ROW_1 = {
   ...SEED_ROW_0,
   excel_task: "E2E__FAIL",
-  remote_task_id: "102",
+  remote_task_id: "E2E__FAIL",
   remote_task_name: "E2E Fail Task",
 };
 

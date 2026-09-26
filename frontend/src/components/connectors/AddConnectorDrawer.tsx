@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -15,12 +15,19 @@ import KeyIcon from '@mui/icons-material/Key'
 import LockIcon from '@mui/icons-material/Lock'
 
 import { useUpsertConnector } from '@/hooks/useConnectors'
-import type { ServiceType } from '@/types'
+import { useConnectorTypes } from '@/hooks/useConnectorTypes'
+import type { ConnectorTypeOut, ServiceType } from '@/types'
 
-import { ALL_SERVICES, SERVICE_META } from './serviceMeta'
+import { SERVICE_META } from './serviceMeta'
+
+export type ConnectorDrawerKind = 'source' | 'destination'
 
 interface AddConnectorDrawerProps {
   open: boolean
+  /** Filtra i tipi selezionabili a sole sorgenti o sole destinazioni: i due
+   * ruoli hanno azioni ed elenchi separati nella pagina Profilo, quindi anche
+   * il drawer non deve mescolare i tipi dell'uno con quelli dell'altro. */
+  kind: ConnectorDrawerKind
   onClose: () => void
   /** Label già in uso dall'utente: servono a impedire un upsert che sovrascriverebbe un connettore esistente. */
   existingLabels: string[]
@@ -29,46 +36,84 @@ interface AddConnectorDrawerProps {
 
 export function AddConnectorDrawer({
   open,
+  kind,
   onClose,
   existingLabels,
-  'data-testid': testId = 'add-connector-drawer',
+  'data-testid': testIdProp,
 }: AddConnectorDrawerProps) {
+  const testId = testIdProp ?? `add-${kind}-drawer`
   const upsert = useUpsertConnector()
+  const { data: allConnectorTypes = [], isLoading: typesLoading } = useConnectorTypes()
+  const connectorTypes = allConnectorTypes.filter((t) =>
+    kind === 'source' ? t.is_source : t.is_destination,
+  )
 
-  const [service, setService] = useState<ServiceType>('jira')
+  const [service, setService] = useState<ServiceType | null>(null)
   const [label, setLabel] = useState('')
   const [accountIdentifier, setAccountIdentifier] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
-  const [dbName, setDbName] = useState('')
+  const [config, setConfig] = useState<Record<string, string>>({})
   const [secret, setSecret] = useState('')
 
-  const meta = SERVICE_META[service]
+  // Il primo tipo disponibile (nel sottoinsieme filtrato per `kind`) diventa
+  // la selezione di default appena il catalogo è caricato o quando il drawer
+  // cambia ruolo (non possiamo assumere che il primo tipo del sottoinsieme
+  // sia sempre disponibile).
+  useEffect(() => {
+    if (!open) return
+    if (connectorTypes.length === 0) return
+    if (service !== null && connectorTypes.some((t) => t.service === service)) return
+    const firstAvailable = connectorTypes.find((t) => t.available)
+    setService((firstAvailable ?? connectorTypes[0]).service)
+    // Il servizio corrente non è più tra quelli del `kind` attivo (es. si è
+    // appena passati da "Aggiungi sorgente" a "Aggiungi connettore"): i campi
+    // specifici del servizio precedente non hanno senso per il nuovo.
+    setAccountIdentifier('')
+    setBaseUrl('')
+    setConfig({})
+    setSecret('')
+  }, [connectorTypes, open, service])
 
-  const selectService = (s: ServiceType) => {
-    setService(s)
+  const spec: ConnectorTypeOut | undefined = connectorTypes.find((t) => t.service === service)
+
+  const selectService = (s: ConnectorTypeOut) => {
+    if (!s.available) return
+    setService(s.service)
     // La label è scelta dall'utente (nessun default): la preserviamo al cambio servizio.
     setAccountIdentifier('')
     setBaseUrl('')
-    setDbName('')
+    setConfig({})
     setSecret('')
+  }
+
+  const setConfigField = (key: string, value: string) => {
+    setConfig((prev) => ({ ...prev, [key]: value }))
   }
 
   const trimmedLabel = label.trim()
   // PUT è un upsert per-label: una label già esistente sovrascriverebbe il connettore corrente
   // invece di crearne uno nuovo. Blocchiamo la collisione lato UI.
   const labelExists = existingLabels.includes(trimmedLabel)
-  const canAdd = trimmedLabel !== '' && secret.trim() !== '' && !labelExists
+  const missingRequiredConfig = (spec?.config_fields ?? []).some(
+    (f) => f.required && !(config[f.key] ?? '').trim(),
+  )
+  const canAdd =
+    !!spec?.available &&
+    trimmedLabel !== '' &&
+    secret.trim() !== '' &&
+    !labelExists &&
+    !missingRequiredConfig
 
   const handleAdd = () => {
-    if (!canAdd || upsert.isPending) return
+    if (!canAdd || !service || upsert.isPending) return
     upsert.mutate(
       {
         label: trimmedLabel,
         body: {
           service,
           account_identifier: accountIdentifier.trim() || null,
-          base_url: meta.hasBaseUrl ? baseUrl.trim() || null : null,
-          db_name: meta.hasDbName ? dbName.trim() || null : null,
+          base_url: spec?.requires_base_url ? baseUrl.trim() || null : null,
+          config,
           secret,
         },
       },
@@ -76,16 +121,19 @@ export function AddConnectorDrawer({
         onSuccess: () => {
           onClose()
           // Reset form
-          setService('jira')
+          setService(null)
           setLabel('')
           setAccountIdentifier('')
           setBaseUrl('')
-          setDbName('')
+          setConfig({})
           setSecret('')
         },
       },
     )
   }
+
+  const meta = service ? SERVICE_META[service] : null
+  const actionLabel = kind === 'source' ? 'Aggiungi sorgente' : 'Aggiungi connettore'
 
   return (
     <Drawer
@@ -114,7 +162,7 @@ export function AddConnectorDrawer({
               width: 32,
               height: 32,
               borderRadius: 1,
-              bgcolor: meta.color,
+              bgcolor: meta?.color ?? 'grey.400',
               display: 'grid',
               placeItems: 'center',
               fontFamily: 'monospace',
@@ -124,14 +172,14 @@ export function AddConnectorDrawer({
               flexShrink: 0,
             }}
           >
-            {meta.letter}
+            {meta?.letter ?? '?'}
           </Box>
           <Box>
             <Typography variant="body1" fontWeight={700}>
-              Aggiungi connettore
+              {actionLabel}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {meta.name}
+              {meta?.name ?? '—'}
             </Typography>
           </Box>
         </Box>
@@ -170,57 +218,69 @@ export function AddConnectorDrawer({
           >
             Tipo di servizio
           </Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
-            {ALL_SERVICES.map((s) => {
-              const sm = SERVICE_META[s]
-              const selected = s === service
-              return (
-                <Box
-                  key={s}
-                  component="button"
-                  onClick={() => selectService(s)}
-                  data-testid={`${testId}-service-${s}`}
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 0.875,
-                    py: 1.5,
-                    px: 1,
-                    border: '1.5px solid',
-                    borderColor: selected ? 'primary.main' : 'divider',
-                    borderRadius: 1.5,
-                    bgcolor: selected ? 'primary.50' : 'background.paper',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    color: selected ? 'primary.main' : 'text.secondary',
-                    transition: 'all 150ms',
-                    '&:hover': { borderColor: 'primary.light', color: 'text.primary' },
-                  }}
-                >
+          {typesLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+              <CircularProgress size={20} />
+            </Box>
+          ) : (
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+              {connectorTypes.map((t) => {
+                const sm = SERVICE_META[t.service]
+                const selected = t.service === service
+                const disabled = !t.available
+                return (
                   <Box
+                    key={t.service}
+                    component="button"
+                    onClick={() => selectService(t)}
+                    disabled={disabled}
+                    title={disabled ? 'Non ancora disponibile' : undefined}
+                    data-testid={`${testId}-service-${t.service}`}
                     sx={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 1,
-                      bgcolor: sm.color,
-                      display: 'grid',
-                      placeItems: 'center',
-                      fontFamily: 'monospace',
-                      fontWeight: 700,
-                      fontSize: '0.8125rem',
-                      color: '#fff',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 0.875,
+                      py: 1.5,
+                      px: 1,
+                      border: '1.5px solid',
+                      borderColor: selected ? 'primary.main' : 'divider',
+                      borderRadius: 1.5,
+                      bgcolor: selected ? 'primary.50' : 'background.paper',
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      opacity: disabled ? 0.45 : 1,
+                      fontFamily: 'inherit',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color: selected ? 'primary.main' : 'text.secondary',
+                      transition: 'all 150ms',
+                      '&:hover': disabled
+                        ? {}
+                        : { borderColor: 'primary.light', color: 'text.primary' },
                     }}
                   >
-                    {sm.letter}
+                    <Box
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 1,
+                        bgcolor: sm.color,
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontFamily: 'monospace',
+                        fontWeight: 700,
+                        fontSize: '0.8125rem',
+                        color: '#fff',
+                      }}
+                    >
+                      {sm.letter}
+                    </Box>
+                    {sm.name}
                   </Box>
-                  {sm.name}
-                </Box>
-              )
-            })}
-          </Box>
+                )
+              })}
+            </Box>
+          )}
         </Box>
 
         {/* Nome connettore */}
@@ -247,42 +307,54 @@ export function AddConnectorDrawer({
           data-testid={`${testId}-label`}
         />
 
-        {/* account_identifier */}
-        <TextField
-          fullWidth
-          size="small"
-          label={meta.accountLabel}
-          value={accountIdentifier}
-          onChange={(e) => setAccountIdentifier(e.target.value)}
-          placeholder={meta.accountPlaceholder}
-          data-testid={`${testId}-account-identifier`}
-        />
+        {/* account_identifier (condizionale) */}
+        {spec?.requires_account_identifier && (
+          <TextField
+            fullWidth
+            size="small"
+            label={spec?.account_identifier_label ?? 'Identificativo account'}
+            value={accountIdentifier}
+            onChange={(e) => setAccountIdentifier(e.target.value)}
+            data-testid={`${testId}-account-identifier`}
+          />
+        )}
 
         {/* base_url (condizionale) */}
-        {meta.hasBaseUrl && (
+        {spec?.requires_base_url && (
           <TextField
             fullWidth
             size="small"
             label="URL istanza"
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder={meta.baseUrlPlaceholder}
             data-testid={`${testId}-base-url`}
           />
         )}
 
-        {/* db_name (condizionale) */}
-        {meta.hasDbName && (
+        {/* Campi di configurazione specifici del servizio (dal catalogo) */}
+        {(spec?.config_fields ?? []).map((field) => (
           <TextField
+            key={field.key}
             fullWidth
             size="small"
-            label={meta.dbNameLabel}
-            value={dbName}
-            onChange={(e) => setDbName(e.target.value)}
-            placeholder={meta.dbNamePlaceholder}
-            data-testid={`${testId}-db-name`}
+            label={
+              field.required ? (
+                <>
+                  {field.label}{' '}
+                  <Typography component="span" color="error">
+                    *
+                  </Typography>
+                </>
+              ) : (
+                field.label
+              )
+            }
+            value={config[field.key] ?? ''}
+            onChange={(e) => setConfigField(field.key, e.target.value)}
+            helperText={field.help ?? undefined}
+            data-testid={`${testId}-config-${field.key}`}
           />
-        )}
+        ))}
 
         {/* Secret (required alla creazione) */}
         <TextField
@@ -292,7 +364,7 @@ export function AddConnectorDrawer({
           required
           label={
             <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {meta.secretLabel}
+              {spec?.secret_label ?? 'Segreto'}
               <Typography
                 component="span"
                 sx={{
@@ -310,6 +382,7 @@ export function AddConnectorDrawer({
           onChange={(e) => setSecret(e.target.value)}
           placeholder="Incolla il token…"
           autoComplete="new-password"
+          helperText={spec?.secret_help ?? undefined}
           slotProps={{
             input: {
               startAdornment: (
@@ -324,9 +397,13 @@ export function AddConnectorDrawer({
               ),
             },
           }}
-          helperText="Il token verrà cifrato lato server e non sarà mai restituito in chiaro."
           data-testid={`${testId}-secret`}
         />
+        {!spec?.secret_help && (
+          <Typography variant="caption" color="text.disabled" sx={{ mt: -1.5 }}>
+            Il token verrà cifrato lato server e non sarà mai restituito in chiaro.
+          </Typography>
+        )}
       </Box>
 
       {/* Footer */}
@@ -352,7 +429,7 @@ export function AddConnectorDrawer({
           disabled={!canAdd || upsert.isPending}
           data-testid={`${testId}-btn-add`}
         >
-          Aggiungi connettore
+          {actionLabel}
         </Button>
         <Button variant="text" size="small" onClick={onClose} data-testid={`${testId}-btn-cancel`}>
           Annulla

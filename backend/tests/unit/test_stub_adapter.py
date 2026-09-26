@@ -4,6 +4,7 @@ from app.adapters.base import (
     AdapterAuthError,
     AdapterConfig,
     AdapterConnectionError,
+    ConnectorAssignment,
     Project,
     ServiceType,
     Task,
@@ -96,6 +97,72 @@ def test_submit_empty_entries_ok(stub: StubAdapter) -> None:
     result = stub.submit([], cfg("E2E__OK"))
     assert result.success_count == 0
     assert result.error_count == 0
+
+
+# ── submit: fallimento per-riga ───────────────────────────────────────────────
+#
+# Il marker di connettore è tutto-o-niente: quando più righe condividono lo
+# stesso connettore non consente di costruire un import *parziale*. Le entry che
+# arrivano a submit() non portano progetto/task (il router le riduce a
+# data/ore/note + id remoti), quindi il marcatore per-riga viaggia sul task
+# remoto dell'assegnazione.
+
+
+def _entry_with_task(task_id: str) -> TimesheetEntry:
+    return TimesheetEntry(
+        date="2024-01-01",
+        hours=8.0,
+        connector_assignments=[
+            ConnectorAssignment(
+                connector_id="odoo-test", project_id="1", task_id=task_id
+            )
+        ],
+    )
+
+
+def test_submit_fails_only_the_marked_row(stub: StubAdapter) -> None:
+    entries = [_entry_with_task("101"), _entry_with_task("E2E__FAIL")]
+
+    result = stub.submit(entries, cfg("E2E__OK"))
+
+    assert result.success_count == 1
+    assert result.error_count == 1
+    assert [e.row for e in result.errors] == [1]
+
+
+def test_submit_row_marker_also_works_on_project(stub: StubAdapter) -> None:
+    entry = TimesheetEntry(
+        date="2024-01-01",
+        hours=8.0,
+        connector_assignments=[
+            ConnectorAssignment(
+                connector_id="odoo-test", project_id="E2E__FAIL", task_id="101"
+            )
+        ],
+    )
+
+    result = stub.submit([entry], cfg("E2E__OK"))
+
+    assert result.error_count == 1
+
+
+def test_submit_unmarked_rows_all_succeed(stub: StubAdapter) -> None:
+    entries = [_entry_with_task("101"), _entry_with_task("102")]
+
+    result = stub.submit(entries, cfg("E2E__OK"))
+
+    assert result.success_count == 2
+    assert result.errors == []
+
+
+def test_connector_marker_still_fails_every_row(stub: StubAdapter) -> None:
+    """Il marker di connettore resta prioritario e continua a valere per tutte
+    le righe, anche quelle senza marcatore per-riga."""
+    entries = [_entry_with_task("101"), _entry_with_task("102")]
+
+    result = stub.submit(entries, cfg("E2E__FAIL"))
+
+    assert result.error_count == 2
 
 
 # ── get_projects ──────────────────────────────────────────────────────────────

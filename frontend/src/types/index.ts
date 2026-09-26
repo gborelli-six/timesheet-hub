@@ -1,11 +1,11 @@
-export type ServiceType = 'jira' | 'odoo' | 'linear' | 'asana'
+export type ServiceType = 'jira' | 'odoo' | 'clockify' | 'linear' | 'asana'
 
 export interface ConnectorOut {
   label: string
   service: ServiceType
   base_url: string | null
   account_identifier: string | null
-  db_name?: string | null
+  config: Record<string, string>
   configured: boolean
   needs_reauth: boolean
   updated_at: string
@@ -15,8 +15,34 @@ export interface ConnectorUpsertRequest {
   service?: ServiceType
   account_identifier?: string | null
   base_url?: string | null
-  db_name?: string | null
+  config?: Record<string, string>
   secret?: string
+}
+
+// ─── Catalogo dei tipi di connettore (E13) ───────────────────────────────────
+// Rispecchia GET /api/connector-types: il frontend genera il form di
+// configurazione a partire da questo schema invece di duplicarne i campi.
+
+export interface ConfigFieldOut {
+  key: string
+  label: string
+  type: 'string' | 'url'
+  required: boolean
+  help: string | null
+}
+
+export interface ConnectorTypeOut {
+  service: ServiceType
+  label: string
+  is_source: boolean
+  is_destination: boolean
+  available: boolean
+  secret_label: string
+  secret_help: string | null
+  requires_base_url: boolean
+  requires_account_identifier: boolean
+  account_identifier_label: string
+  config_fields: ConfigFieldOut[]
 }
 
 export interface ConnectorResult {

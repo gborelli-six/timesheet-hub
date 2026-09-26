@@ -87,7 +87,10 @@ def test_get_without_auth_returns_401(api):
 
 def test_put_without_auth_returns_401(api):
     client, _ = api
-    r = client.put("/api/me/connectors/odoo", json={"service": "odoo", "secret": "s"})
+    r = client.put(
+        "/api/me/connectors/odoo",
+        json={"service": "odoo", "config": {"db_name": "testdb"}, "secret": "s"},
+    )
     assert r.status_code == 401
 
 
@@ -118,6 +121,7 @@ def test_put_creates_connector(api):
         "/api/me/connectors/odoo",
         json={
             "service": "odoo",
+            "config": {"db_name": "testdb"},
             "account_identifier": "alice@example.com",
             "base_url": "https://odoo.example.com",
             "secret": "my-api-key",
@@ -162,7 +166,11 @@ def test_put_secret_max_length_4096(api):
     long_secret = "x" * 4097
     r = client.put(
         "/api/me/connectors/odoo",
-        json={"service": "odoo", "secret": long_secret},
+        json={
+            "service": "odoo",
+            "config": {"db_name": "testdb"},
+            "secret": long_secret,
+        },
         cookies={"session": token},
     )
     assert r.status_code == 422
@@ -193,7 +201,11 @@ def test_secret_never_in_put_response(api):
     secret_value = "super-secret-api-key-do-not-leak"
     r = client.put(
         "/api/me/connectors/odoo",
-        json={"service": "odoo", "secret": secret_value},
+        json={
+            "service": "odoo",
+            "config": {"db_name": "testdb"},
+            "secret": secret_value,
+        },
         cookies={"session": token},
     )
     assert r.status_code == 200
@@ -212,6 +224,7 @@ def test_put_without_secret_preserves_encrypted_value(api):
         "/api/me/connectors/odoo",
         json={
             "service": "odoo",
+            "config": {"db_name": "testdb"},
             "account_identifier": "alice@example.com",
             "secret": "original-secret",
         },
@@ -249,7 +262,11 @@ def test_put_with_new_secret_generates_new_nonce(api):
 
     client.put(
         "/api/me/connectors/odoo",
-        json={"service": "odoo", "secret": "first-secret"},
+        json={
+            "service": "odoo",
+            "config": {"db_name": "testdb"},
+            "secret": "first-secret",
+        },
         cookies={"session": token},
     )
     row_first = (
@@ -281,7 +298,12 @@ def test_put_updates_base_url(api):
 
     client.put(
         "/api/me/connectors/odoo",
-        json={"service": "odoo", "secret": "s", "base_url": "https://v1.example.com"},
+        json={
+            "service": "odoo",
+            "config": {"db_name": "testdb"},
+            "secret": "s",
+            "base_url": "https://v1.example.com",
+        },
         cookies={"session": token},
     )
     r = client.put(
@@ -301,7 +323,7 @@ def test_delete_removes_connector(api):
     token = _make_session(USER_A_ID)
     client.put(
         "/api/me/connectors/odoo",
-        json={"service": "odoo", "secret": "s"},
+        json={"service": "odoo", "config": {"db_name": "testdb"}, "secret": "s"},
         cookies={"session": token},
     )
     r = client.delete("/api/me/connectors/odoo", cookies={"session": token})
@@ -327,16 +349,16 @@ def test_get_after_put_returns_connector(api):
     client, _ = api
     token = _make_session(USER_A_ID)
     client.put(
-        "/api/me/connectors/linear",
-        json={"service": "linear", "account_identifier": "alice", "secret": "lk"},
+        "/api/me/connectors/jira",
+        json={"service": "jira", "account_identifier": "alice", "secret": "lk"},
         cookies={"session": token},
     )
     r = client.get("/api/me/connectors/", cookies={"session": token})
     assert r.status_code == 200
     connectors = r.json()
     assert len(connectors) == 1
-    assert connectors[0]["label"] == "linear"
-    assert connectors[0]["service"] == "linear"
+    assert connectors[0]["label"] == "jira"
+    assert connectors[0]["service"] == "jira"
     assert connectors[0]["account_identifier"] == "alice"
     assert connectors[0]["configured"] is True
 
@@ -401,7 +423,7 @@ def test_user_cannot_see_other_users_connectors(api):
 
     client.put(
         "/api/me/connectors/odoo",
-        json={"service": "odoo", "secret": "a-secret"},
+        json={"service": "odoo", "config": {"db_name": "testdb"}, "secret": "a-secret"},
         cookies={"session": token_a},
     )
 
@@ -417,7 +439,7 @@ def test_user_cannot_delete_other_users_connector(api):
 
     client.put(
         "/api/me/connectors/odoo",
-        json={"service": "odoo", "secret": "a-secret"},
+        json={"service": "odoo", "config": {"db_name": "testdb"}, "secret": "a-secret"},
         cookies={"session": token_a},
     )
 
@@ -484,6 +506,7 @@ def test_put_with_secret_resets_needs_reauth(api):
         "/api/me/connectors/Odoo%20Prod",
         json={
             "service": "odoo",
+            "config": {"db_name": "testdb"},
             "account_identifier": "admin",
             "secret": "oldtoken",
             "base_url": "https://odoo.example.com",
@@ -528,7 +551,7 @@ def test_delete_soft_deletes_and_wipes_secrets(api):
             "account_identifier": "alice@example.com",
             "base_url": "https://odoo.example.com",
             "secret": "my-secret",
-            "db_name": "prod",
+            "config": {"db_name": "prod"},
         },
         cookies={"session": token},
     )
@@ -550,7 +573,7 @@ def test_delete_soft_deletes_and_wipes_secrets(api):
     assert row.nonce == b""
     assert row.account_identifier is None
     assert row.base_url is None
-    assert row.db_name is None
+    assert row.config == {}
 
 
 def test_can_recreate_connector_after_delete(api):
@@ -559,7 +582,11 @@ def test_can_recreate_connector_after_delete(api):
 
     client.put(
         "/api/me/connectors/odoo",
-        json={"service": "odoo", "secret": "first-secret"},
+        json={
+            "service": "odoo",
+            "config": {"db_name": "prod"},
+            "secret": "first-secret",
+        },
         cookies={"session": token},
     )
     client.delete("/api/me/connectors/odoo", cookies={"session": token})
@@ -568,6 +595,7 @@ def test_can_recreate_connector_after_delete(api):
         "/api/me/connectors/odoo",
         json={
             "service": "odoo",
+            "config": {"db_name": "prod"},
             "account_identifier": "new@example.com",
             "secret": "new-secret",
         },
@@ -590,7 +618,7 @@ def test_delete_already_deleted_returns_404(api):
     token = _make_session(USER_A_ID)
     client.put(
         "/api/me/connectors/odoo",
-        json={"service": "odoo", "secret": "s"},
+        json={"service": "odoo", "config": {"db_name": "prod"}, "secret": "s"},
         cookies={"session": token},
     )
     r1 = client.delete("/api/me/connectors/odoo", cookies={"session": token})
