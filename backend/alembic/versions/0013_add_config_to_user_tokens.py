@@ -1,7 +1,7 @@
 """add config jsonb to user_tokens, replacing db_name
 
-Revision ID: 0010
-Revises: 0009
+Revision ID: 0013
+Revises: 0012
 Create Date: 2026-09-21
 
 Sostituisce la colonna Odoo-specifica `db_name` (0006) con una colonna JSONB
@@ -18,8 +18,8 @@ from sqlalchemy.dialects import postgresql as pg
 
 from alembic import op
 
-revision = "0010"
-down_revision = "0009"
+revision = "0013"
+down_revision = "0012"
 branch_labels = None
 depends_on = None
 

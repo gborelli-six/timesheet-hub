@@ -398,9 +398,9 @@ export function ConnectorRow({
 
       <ConfirmDialog
         open={deleteOpen}
-        title="Elimina connettore"
-        message={`Rimuovere il connettore "${conn.label}" (${meta.name})? Questa azione non può essere annullata.`}
-        confirmLabel="Elimina"
+        title="Disattiva connettore"
+        message={`Disattivare il connettore "${conn.label}" (${meta.name})? I dati di accesso verranno rimossi. Lo storico delle importazioni resterà consultabile.`}
+        confirmLabel="Disattiva"
         confirmColor="error"
         onConfirm={handleDelete}
         onCancel={() => setDeleteOpen(false)}

@@ -284,3 +284,27 @@ La shell usa 5 icone (import, log, profilo, admin, logout). Invece di aggiungere
 **4. CSS Grid per il layout shell — nessun Drawer MUI**
 
 Il layout `AppShell` usa CSS Grid (`gridTemplateRows: '60px 1fr'`, `gridTemplateColumns: '244px 1fr'`) anziché il componente `Drawer` di MUI o il pattern classico Mantis con `Drawer` permanente. La shell è desktop-only (nessun breakpoint mobile, nessun `useMediaQuery`), quindi la sidebar non ha mai bisogno di collassarsi. CSS Grid in questo contesto è più prevedibile e meno codice rispetto a un Drawer configurato come permanente.
+
+---
+
+## Aggiornamento post-E8a — Import asincrono con asyncio.Queue
+
+> Implementato in E8a (branch `feature/async-import-polling-analysis`) — 2026-07-03. Decisione architetturale di dettaglio in [ADR-008](ADR-008-async-import-queue.md).
+
+L'endpoint `POST /api/me/imports` è stato refactorizzato da sincrono a asincrono. Il pattern adottato è una **coda in-process** (`asyncio.Queue`) con worker coroutine, senza dipendenze esterne aggiuntive.
+
+**Comportamento:**
+
+- L'endpoint registra immediatamente il record import con `status=in_progress` e ritorna `{import_id}` in meno di un secondo.
+- Il lavoro effettivo (chiamate agli adapter) viene accodato e processato da N worker asyncio avviati al boot dell'applicazione.
+- I worker invocano gli adapter sincroni (XML-RPC Odoo, REST Jira) tramite `asyncio.to_thread()` per non bloccare l'event loop FastAPI.
+- Tutte le chiamate adapter per lo stesso job vengono eseguite in parallelo con `asyncio.gather`.
+- Il frontend monitora il progresso con polling su `GET /api/me/imports/{id}`.
+
+**Parametro di configurazione:**
+
+| Variabile d'ambiente | Tipo | Default | Descrizione |
+|---|---|---|---|
+| `IMPORT_WORKERS` | `int` | `3` | Numero di worker asyncio; consente tuning senza deploy di codice |
+
+**Impatto su nginx:** il `proxy_read_timeout 60s` configurato in ADR-001-E non è più critico per il `POST /api/me/imports` (la risposta arriva in < 1 s). Il timeout rimane vincolante per le chiamate `get_projects`/`get_tasks` dell'autocomplete, che sono sincrone e bloccanti per la durata della risposta dell'adapter.

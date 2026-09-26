@@ -1,13 +1,13 @@
 """add clockify to user_tokens_service_enum
 
-Revision ID: 0009
-Revises: 0008
+Revision ID: 0012
+Revises: 0011
 Create Date: 2026-09-21
 
 Aggiunge il valore `clockify` all'enum dei servizi. Scritta a mano: gli
 `ALTER TYPE ... ADD VALUE` non sono autogenerabili (ADR-004-B).
 
-Questa migrazione resta separata da 0010 di proposito: PostgreSQL non consente
+Questa migrazione resta separata da 0013 di proposito: PostgreSQL non consente
 di *usare* un valore di enum nella stessa transazione in cui è stato aggiunto,
 quindi il valore deve essere committato prima che qualunque altro DDL o DML vi
 faccia riferimento.
@@ -17,8 +17,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision = "0009"
-down_revision = "0008"
+revision = "0012"
+down_revision = "0011"
 branch_labels = None
 depends_on = None
 

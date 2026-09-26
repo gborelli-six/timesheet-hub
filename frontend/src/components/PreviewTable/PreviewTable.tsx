@@ -1,24 +1,39 @@
+import { useState } from 'react'
+import type { ReactNode } from 'react'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
 import Chip from '@mui/material/Chip'
+import Divider from '@mui/material/Divider'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
+import FilterAltIcon from '@mui/icons-material/FilterAlt'
+import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined'
 import IconButton from '@mui/material/IconButton'
+import InputAdornment from '@mui/material/InputAdornment'
+import Link from '@mui/material/Link'
+import List from '@mui/material/List'
+import ListItemButton from '@mui/material/ListItemButton'
+import ListItemText from '@mui/material/ListItemText'
 import Paper from '@mui/material/Paper'
+import Popover from '@mui/material/Popover'
+import SearchIcon from '@mui/icons-material/Search'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import type { ConnectorAssignment, RowWarning, TimesheetEntry } from '../../lib/timesheet/types'
 import { WARNING_LABEL } from '../../lib/timesheet/types'
+import type { PreviewFilters } from '../../hooks/usePreviewFilters'
 import { SERVICE_META } from '../connectors/serviceMeta'
 
 interface PreviewTableProps {
@@ -26,6 +41,145 @@ interface PreviewTableProps {
   warnings: RowWarning[]
   assignmentsByRow?: Record<number, ConnectorAssignment[]>
   onAssign?: (entryIndex: number) => void
+  /** Indici (originali) da mostrare; se assente mostra tutte le entries. */
+  filteredIndices?: number[]
+  filters?: PreviewFilters
+  distinctDates?: string[]
+  distinctProjects?: string[]
+  distinctTasks?: string[]
+  onFilterDate?: (values: string[]) => void
+  onFilterProject?: (values: string[]) => void
+  onFilterTask?: (values: string[]) => void
+  isFiltered?: boolean
+  onResetFilters?: () => void
+}
+
+/* ── Column funnel filter (Opzione C) ───────────────────── */
+
+interface ColumnFilterProps {
+  values: string[]
+  selected: string[]
+  onChange: (values: string[]) => void
+  testId: string
+  /** Nome della colonna, usato per l'aria-label del pulsante imbuto. */
+  columnLabel: string
+  /** Formatta il valore per la visualizzazione (es. date ISO → locale). */
+  formatValue?: (value: string) => string
+}
+
+function ColumnFilter({
+  values,
+  selected,
+  onChange,
+  testId,
+  columnLabel,
+  formatValue,
+}: ColumnFilterProps) {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+  const [search, setSearch] = useState('')
+  const active = selected.length > 0
+
+  function close() {
+    setAnchorEl(null)
+    setSearch('')
+  }
+
+  function toggle(value: string) {
+    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value])
+  }
+
+  const visible = values.filter((v) =>
+    (formatValue ? formatValue(v) : v).toLowerCase().includes(search.trim().toLowerCase()),
+  )
+
+  return (
+    <>
+      <IconButton
+        size="small"
+        data-testid={testId}
+        aria-label={`Filtra per ${columnLabel.toLowerCase()}`}
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        sx={{
+          width: 20,
+          height: 20,
+          ...(active
+            ? { bgcolor: 'primary.main', color: '#fff', '&:hover': { bgcolor: 'primary.dark' } }
+            : { color: 'text.disabled' }),
+        }}
+      >
+        {active ? (
+          <FilterAltIcon sx={{ fontSize: 14 }} />
+        ) : (
+          <FilterAltOutlinedIcon sx={{ fontSize: 14 }} />
+        )}
+      </IconButton>
+      <Popover
+        open={anchorEl !== null}
+        anchorEl={anchorEl}
+        onClose={close}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        slotProps={{ paper: { sx: { width: 240, maxHeight: 340 } } }}
+        data-testid={`${testId}-menu`}
+      >
+        <Box sx={{ p: 1 }}>
+          <TextField
+            size="small"
+            fullWidth
+            autoFocus
+            placeholder="Cerca…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ fontSize: 16 }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        </Box>
+        <Divider />
+        <List dense sx={{ maxHeight: 240, overflow: 'auto', py: 0 }}>
+          {visible.length === 0 && (
+            <Typography
+              variant="body2"
+              sx={{ px: 2, py: 1, color: 'text.disabled', fontStyle: 'italic' }}
+            >
+              Nessun valore
+            </Typography>
+          )}
+          {visible.map((value) => (
+            <ListItemButton key={value} dense onClick={() => toggle(value)} sx={{ py: 0.25 }}>
+              <Checkbox
+                edge="start"
+                size="small"
+                checked={selected.includes(value)}
+                tabIndex={-1}
+                disableRipple
+                sx={{ py: 0, mr: 0.5 }}
+              />
+              <ListItemText
+                primary={formatValue ? formatValue(value) : value}
+                slotProps={{ primary: { sx: { fontSize: '0.8125rem' } } }}
+              />
+            </ListItemButton>
+          ))}
+        </List>
+        {active && (
+          <>
+            <Divider />
+            <Box sx={{ p: 0.5, textAlign: 'right' }}>
+              <Button size="small" onClick={() => onChange([])}>
+                Deseleziona
+              </Button>
+            </Box>
+          </>
+        )}
+      </Popover>
+    </>
+  )
 }
 
 /* ── Connector chips for one row ────────────────────────── */
@@ -111,7 +265,7 @@ function ConnChips({ assigns, onAssign, entryIndex }: ConnChipsProps) {
                   {meta.letter}
                 </Box>
                 <Typography sx={{ fontSize: '0.6875rem', fontWeight: 700, lineHeight: 1 }}>
-                  {meta.name}
+                  {a.connectorLabel}
                 </Typography>
                 {a.suggested && (
                   <AutoAwesomeIcon
@@ -164,6 +318,15 @@ function ConnChips({ assigns, onAssign, entryIndex }: ConnChipsProps) {
   )
 }
 
+function FilterableHeader({ label, filter }: { label: string; filter: ReactNode }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <span>{label}</span>
+      {filter}
+    </Box>
+  )
+}
+
 function formatDate(iso: string | undefined): string {
   if (!iso) return '—'
   const [y, mo, d] = iso.split('-').map(Number)
@@ -175,11 +338,30 @@ export default function PreviewTable({
   warnings,
   assignmentsByRow,
   onAssign,
+  filteredIndices,
+  filters,
+  distinctDates,
+  distinctProjects,
+  distinctTasks,
+  onFilterDate,
+  onFilterProject,
+  onFilterTask,
+  isFiltered,
+  onResetFilters,
 }: PreviewTableProps) {
   const perRowWarnings = warnings.filter((w) => w.entryIndex >= 0)
-  const warningEntryIndexes = new Set(perRowWarnings.map((w) => w.entryIndex))
-  const warningRowCount = warningEntryIndexes.size
-  const validRowCount = entries.length - warningRowCount
+
+  // Indici da renderizzare: sottoinsieme filtrato oppure tutte le entries.
+  const visibleIndices = filteredIndices ?? entries.map((_, i) => i)
+
+  // Alert warning e conteggi riflettono il sottoinsieme filtrato visibile.
+  const visibleWarningIndexes = new Set(
+    perRowWarnings.map((w) => w.entryIndex).filter((i) => visibleIndices.includes(i)),
+  )
+  const warningRowCount = visibleWarningIndexes.size
+  const validRowCount = visibleIndices.length - warningRowCount
+
+  const filtersEnabled = onFilterDate != null || onFilterProject != null || onFilterTask != null
 
   function rowWarnings(idx: number): RowWarning[] {
     return perRowWarnings.filter((w) => w.entryIndex === idx)
@@ -187,6 +369,22 @@ export default function PreviewTable({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {isFiltered && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Typography variant="body2" color="text.secondary" data-testid="filter-count">
+            Mostrate {visibleIndices.length} di {entries.length} righe
+          </Typography>
+          <Link
+            component="button"
+            type="button"
+            variant="body2"
+            onClick={onResetFilters}
+            data-testid="filter-reset"
+          >
+            Rimuovi filtri
+          </Link>
+        </Box>
+      )}
       {warningRowCount > 0 && (
         <Alert
           severity="warning"
@@ -206,9 +404,55 @@ export default function PreviewTable({
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ width: 70 }}>Data</TableCell>
-              <TableCell>Progetto</TableCell>
-              <TableCell>Task</TableCell>
+              <TableCell sx={{ width: 90 }}>
+                <FilterableHeader
+                  label="Data"
+                  filter={
+                    filtersEnabled && onFilterDate ? (
+                      <ColumnFilter
+                        values={distinctDates ?? []}
+                        selected={filters?.dates ?? []}
+                        onChange={onFilterDate}
+                        testId="column-filter-date"
+                        columnLabel="Data"
+                        formatValue={formatDate}
+                      />
+                    ) : null
+                  }
+                />
+              </TableCell>
+              <TableCell>
+                <FilterableHeader
+                  label="Progetto"
+                  filter={
+                    filtersEnabled && onFilterProject ? (
+                      <ColumnFilter
+                        values={distinctProjects ?? []}
+                        selected={filters?.projects ?? []}
+                        onChange={onFilterProject}
+                        testId="column-filter-project"
+                        columnLabel="Progetto"
+                      />
+                    ) : null
+                  }
+                />
+              </TableCell>
+              <TableCell>
+                <FilterableHeader
+                  label="Task"
+                  filter={
+                    filtersEnabled && onFilterTask ? (
+                      <ColumnFilter
+                        values={distinctTasks ?? []}
+                        selected={filters?.tasks ?? []}
+                        onChange={onFilterTask}
+                        testId="column-filter-task"
+                        columnLabel="Task"
+                      />
+                    ) : null
+                  }
+                />
+              </TableCell>
               <TableCell sx={{ width: 180 }}>Note</TableCell>
               <TableCell align="right" sx={{ width: 70 }}>
                 Ore
@@ -218,7 +462,8 @@ export default function PreviewTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {entries.map((entry, idx) => {
+            {visibleIndices.map((idx) => {
+              const entry = entries[idx]
               const rw = rowWarnings(idx)
               const hasWarning = rw.length > 0
               const tooltipText = rw.map((w) => WARNING_LABEL[w.type]).join(' · ')

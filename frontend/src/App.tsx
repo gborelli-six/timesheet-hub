@@ -7,6 +7,7 @@ import CallbackPage from '@/pages/CallbackPage'
 import ImportPage from '@/pages/ImportPage'
 import LogPage from '@/pages/LogPage'
 import LogDetailPage from '@/pages/LogDetailPage'
+import ReportPage from '@/pages/ReportPage'
 import ProfilePage from '@/pages/ProfilePage'
 import AdminPage from '@/pages/AdminPage'
 
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/import" element={<ImportPage />} />
         <Route path="/log" element={<LogPage />} />
         <Route path="/log/:id" element={<LogDetailPage />} />
+        <Route path="/report" element={<ReportPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<Navigate to="/import" replace />} />

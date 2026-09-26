@@ -250,6 +250,52 @@ Accessibile solo al ruolo `admin`. Suddiviso in tre sotto-sezioni navigabili.
 
 ---
 
+### 3.7 — Report Ore
+
+Accessibile a tutti i ruoli tramite la voce **Report** nella sidebar. Mostra solo i dati dell'utente corrente (ogni utente vede esclusivamente le proprie ore importate con successo).
+
+#### Struttura della pagina
+
+- **Heading**: eyebrow "Analisi" (monospace, uppercase, primary-600) + titolo h1 "Report importazioni" + sottotitolo descrittivo
+- **Filter toolbar** (2 righe distinte, stile pill a bordo arrotondato):
+  - **Riga periodo**: preset cliccabili (Mese corrente / Mese precedente / Trimestre corrente / Anno corrente / Personalizzato) con campi data custom che appaiono al click su "Personalizzato"
+  - **Riga pill filtri**: pulsanti pillola per Connettore, Progetto, Task — ciascuno apre un popover con lista opzioni; la pillola cambia aspetto (bordo primary, sfondo chiaro) quando il filtro è attivo; riepilogo "N progetti · X.X h" e bottone "Azzera" a destra
+- **Pivot table** (tabella HTML, nessuna libreria esterna):
+  - Intestazione: una colonna per connettore (dot monogramma colorato + nome label) + colonna Totale (evidenziata in primary-50)
+  - Body: una riga per progetto, espandibile su click tramite popover chooser per-riga
+  - Footer: riga "Totale ore" con totali per connettore + grand total
+
+#### Modello di espansione — popover chooser per-riga
+
+Ogni riga progetto ha un pulsante trigger (chevron + nome progetto) che apre un **popover contestuale** con due opzioni:
+
+- **Dettaglio per Giorno** → le righe L1 (sub-righe con indentazione 1) mostrano le date; ogni L1 è cliccabile per espandere le righe L2 (indentazione 2) con i task in quella giornata
+- **Dettaglio per Task** → le righe L1 mostrano i task; le L2 mostrano i giorni per quel task
+- **Comprimi** (visibile se già espanso) → collassa il progetto
+
+Non esistono controlli globali di espansione/collasso: ogni progetto è gestito indipendentemente.
+
+#### Colonne dinamiche
+
+Le colonne connettore sono derivate dinamicamente dal dataset: una colonna per ogni `connector_label` distinto presente nei dati. Due connettori con lo stesso label condividono la stessa colonna (i label sono già univoci per utente in `user_tokens`). Il dot monogramma usa il colore del servizio (Odoo, Jira, Linear, Asana).
+
+#### Stati visivi
+
+| Stato | Componente |
+|---|---|
+| Caricamento | `ReportSkeleton`: tabella con 5 righe shimmer e 3 colonne finte |
+| Vuoto (nessun dato) | Icona chart + messaggio "Non risultano ancora importazioni..." |
+| Vuoto (filtro attivo) | Icona chart + messaggio differenziato + bottone "Azzera filtri" |
+| Errore | Icona warning + bottone "Riprova" |
+
+#### Formato celle
+
+- Ore: `8.0` (monospace, una cifra decimale); unità `h` nel riepilogo summary e nell'header della pagina
+- Cella vuota: `—`
+- Righe con `entry_date = null` mostrate come `—` nella dimensione giorno
+
+---
+
 ## 4. Navigazione globale
 
 **Navbar laterale** (sidebar) o **top bar** — da valutare in base alla densità di sezioni.

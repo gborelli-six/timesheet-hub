@@ -1,11 +1,16 @@
 """
 Test di integrazione per la persistenza del log alla submit (POST /api/me/imports).
 
+Con il flusso asincrono, POST ritorna subito con status=in_progress e results=[].
+Il worker processa il job in background; i test attendono il completamento tramite
+polling su GET /api/me/imports/{id} fino a status != in_progress.
+
 Verifica: submit con esiti misti (E2E__OK / E2E__FAIL) → header con status/conteggi
 corretti + import_rows coerenti; import_id nella response; connector_row_mappings
-aggiornate; connettore E2E__DOWN → 502 e NESSUN log persistito (import atomico).
+aggiornate; connettore E2E__DOWN → log persistito con status=failed.
 """
 
+import time
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import UUID, uuid4
@@ -19,6 +24,7 @@ from sqlalchemy.pool import StaticPool
 
 import app.core.security as security_module
 import app.models  # noqa: F401 — registra tutti i modelli in Base.metadata
+import app.routers.imports as imports_module
 from app.adapters.base import ServiceType
 from app.adapters.registry import adapter_registry
 from app.adapters.stub import StubAdapter
@@ -58,18 +64,23 @@ def _make_session(user_id: UUID, role: str = "employee") -> str:
 
 
 @pytest.fixture()
-def db_session():
+def db_engine():
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
     Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture()
+def db_session(db_engine):
+    Session = sessionmaker(bind=db_engine)
     session = Session()
     yield session
     session.close()
-    engine.dispose()
 
 
 @pytest.fixture()
@@ -83,8 +94,12 @@ def stub_registered():
 
 
 @pytest.fixture()
-def api(monkeypatch, db_session, stub_registered):
+def api(monkeypatch, db_engine, db_session, stub_registered):
     monkeypatch.setattr(security_module, "settings", FAKE_SETTINGS)
+    # Patcha sia get_db (per i router) sia SessionLocal nel modulo imports
+    # (usato dal worker asincrono che apre la propria sessione).
+    TestSessionLocal = sessionmaker(bind=db_engine, autocommit=False, autoflush=False)
+    monkeypatch.setattr(imports_module, "SessionLocal", TestSessionLocal)
     app.dependency_overrides[get_db] = lambda: db_session
     with TestClient(app, raise_server_exceptions=True) as c:
         yield c, db_session
@@ -137,6 +152,55 @@ def _entry(date_str, project, task, hours, label, remote_project_id, remote_task
     }
 
 
+def _wait_import_done(
+    client: TestClient, import_id: UUID, session_cookie: str, timeout: float = 5.0
+) -> dict:
+    """Polling su GET /api/me/imports/{id} finché status != in_progress."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        r = client.get(
+            f"/api/me/imports/{import_id}",
+            cookies={"session": session_cookie},
+        )
+        assert r.status_code == 200, r.text
+        data = r.json()
+        if data["status"] != "in_progress":
+            return data
+        time.sleep(0.05)
+    raise TimeoutError(f"Import {import_id} still in_progress after {timeout}s")
+
+
+def test_post_returns_immediately_with_in_progress(api):
+    """POST ritorna subito con import_id, results=[] e status=in_progress."""
+    client, db = api
+    _setup_user(db)
+    _add_token(db, USER_A_ID, "odoo-ok", "E2E__OK")
+    session = _make_session(USER_A_ID)
+
+    payload = {
+        "entries": [
+            _entry(
+                "2026-06-10",
+                "Progetto Alpha",
+                "Task Frontend",
+                8.0,
+                "odoo-ok",
+                "1",
+                "101",
+            ),
+        ]
+    }
+    r = client.post("/api/me/imports", json=payload, cookies={"session": session})
+    assert r.status_code == 200
+    data = r.json()
+    assert "import_id" in data
+    assert data["results"] == []
+
+    # Lo stato iniziale nel DB deve essere in_progress
+    imp = db.query(Import).filter(Import.id == UUID(data["import_id"])).one()
+    assert imp.status == ImportStatus.in_progress
+
+
 def test_mixed_submit_persists_log(api):
     client, db = api
     _setup_user(db)
@@ -170,12 +234,17 @@ def test_mixed_submit_persists_log(api):
     assert r.status_code == 200
     data = r.json()
 
-    # import_id presente e results invariato nel contratto
     assert "import_id" in data
     import_id = UUID(data["import_id"])
-    assert len(data["results"]) == 2
 
-    # Header persistito
+    # Attende che il worker completi il job
+    final = _wait_import_done(client, import_id, session)
+
+    # Verifica response finale via GET
+    assert final["status"] == "partial"
+
+    # Header persistito (rilegge dalla stessa sessione DB dopo commit del worker)
+    db.expire_all()
     imp = db.query(Import).filter(Import.id == import_id).one()
     assert imp.employee_id == USER_A_ID
     assert imp.operator_id is None
@@ -228,7 +297,12 @@ def test_all_success_status(api):
     }
     r = client.post("/api/me/imports", json=payload, cookies={"session": session})
     assert r.status_code == 200
-    imp = db.query(Import).filter(Import.id == UUID(r.json()["import_id"])).one()
+    import_id = UUID(r.json()["import_id"])
+
+    _wait_import_done(client, import_id, _make_session(USER_A_ID))
+
+    db.expire_all()
+    imp = db.query(Import).filter(Import.id == import_id).one()
     assert imp.status == ImportStatus.success
     assert imp.success_rows == 1
     assert imp.failed_rows == 0
@@ -271,8 +345,12 @@ def test_multi_connector_row_counts_excel_rows(api):
     }
     r = client.post("/api/me/imports", json=payload, cookies={"session": session})
     assert r.status_code == 200
+    import_id = UUID(r.json()["import_id"])
 
-    imp = db.query(Import).filter(Import.id == UUID(r.json()["import_id"])).one()
+    _wait_import_done(client, import_id, session)
+
+    db.expire_all()
+    imp = db.query(Import).filter(Import.id == import_id).one()
     # 1 riga Excel, contata una sola volta anche se ha due connettori.
     assert imp.total_rows == 1
     assert imp.failed_rows == 1
@@ -312,15 +390,22 @@ def test_partial_status_from_row_counts(api):
     }
     r = client.post("/api/me/imports", json=payload, cookies={"session": session})
     assert r.status_code == 200
+    import_id = UUID(r.json()["import_id"])
 
-    imp = db.query(Import).filter(Import.id == UUID(r.json()["import_id"])).one()
+    _wait_import_done(client, import_id, session)
+
+    db.expire_all()
+    imp = db.query(Import).filter(Import.id == import_id).one()
     assert imp.total_rows == 2
     assert imp.success_rows == 1
     assert imp.failed_rows == 1
     assert imp.status == ImportStatus.partial
 
 
-def test_connector_down_persists_no_log(api):
+def test_connector_down_persists_failed_log(api):
+    # Con il flusso asincrono, E2E__DOWN non genera più 502 a livello di POST.
+    # La validazione early controlla solo l'esistenza del token (404 se mancante).
+    # Il worker cattura l'AdapterConnectionError e persiste il log come failed.
     client, db = api
     _setup_user(db)
     _add_token(db, USER_A_ID, "odoo-down", "E2E__DOWN")
@@ -340,7 +425,15 @@ def test_connector_down_persists_no_log(api):
         ]
     }
     r = client.post("/api/me/imports", json=payload, cookies={"session": session})
-    assert r.status_code == 502
-    # Import atomico: nessun log persistito
-    assert db.query(Import).count() == 0
-    assert db.query(ImportRow).count() == 0
+    assert r.status_code == 200
+    import_id = UUID(r.json()["import_id"])
+
+    _wait_import_done(client, import_id, session)
+
+    db.expire_all()
+    imp = db.query(Import).filter(Import.id == import_id).one()
+    assert imp.status == ImportStatus.failed
+    # Una riga persistita con stato failed
+    rows = db.query(ImportRow).filter(ImportRow.import_id == import_id).all()
+    assert len(rows) == 1
+    assert rows[0].status == ImportRowStatus.failed

@@ -65,6 +65,32 @@ export async function generateE2EFixtures(): Promise<void> {
     { date: "2026-03-02", project: "Beta Project", task: "Review", hours: 4, notes: "" },
   ]);
 
+  // Enhancement E8a: fixture per "Precompila righe simili" (in-page).
+  //   Riga 0 e 1 condividono (progetto, task) → la 1 va precompilata dalla 0.
+  //   Riga 2 ha (progetto, task) diverso → NON deve essere toccata.
+  await writeFixture("fill-similar.xlsx", [
+    { date: "2026-05-01", project: "Fill Alpha", task: "Shared Task", hours: 8, notes: "" },
+    { date: "2026-05-02", project: "Fill Alpha", task: "Shared Task", hours: 4, notes: "" },
+    { date: "2026-05-03", project: "Fill Beta", task: "Other Task", hours: 2, notes: "" },
+  ]);
+
+  // E9c-6: fixture per i filtri dello Step 2 — 8 righe, 3 progetti / 3 task / 3 date
+  // distinti. Nessun marcatore E2E__ e chiavi non presenti nei mapping seminati,
+  // così tutte le righe partono vuote (i connettori si assegnano a mano nel test).
+  //   Progetti: Alpha (0,1,2) · Beta (3,4,5) · Gamma (6,7)
+  //   Task:     Dev (0,2,5)   · Review (1,3,7) · QA (4,6)
+  //   Date:     2026-06-01 (0,1) · 2026-06-02 (2,3,4) · 2026-06-03 (5,6,7)
+  await writeFixture("filters.xlsx", [
+    { date: "2026-06-01", project: "Alpha", task: "Dev", hours: 8, notes: "" },
+    { date: "2026-06-01", project: "Alpha", task: "Review", hours: 4, notes: "" },
+    { date: "2026-06-02", project: "Alpha", task: "Dev", hours: 6, notes: "" },
+    { date: "2026-06-02", project: "Beta", task: "Review", hours: 3, notes: "" },
+    { date: "2026-06-02", project: "Beta", task: "QA", hours: 2, notes: "" },
+    { date: "2026-06-03", project: "Beta", task: "Dev", hours: 5, notes: "" },
+    { date: "2026-06-03", project: "Gamma", task: "QA", hours: 7, notes: "" },
+    { date: "2026-06-03", project: "Gamma", task: "Review", hours: 1, notes: "" },
+  ]);
+
   // E8b: fixture per il test del wizard con connettore Jira stub
   // excel_project/excel_task devono corrispondere al seed-mapping iniettato dal beforeEach
   await writeFixture("jira-happy.xlsx", [
@@ -80,7 +106,7 @@ async function writeFixture(filename: string, rows: TimesheetRow[]): Promise<voi
   const ws = wb.addWorksheet("Timesheet");
 
   // Header standard Timesheet Hub (template atteso dall'import wizard)
-  ws.addRow(["Data", "Progetto", "Task", "Ore", "Note"]);
+  ws.addRow(["Date", "Project", "Task", "Hours", "Notes"]);
 
   for (const row of rows) {
     ws.addRow([row.date, row.project, row.task, row.hours, row.notes ?? ""]);
@@ -112,7 +138,7 @@ async function writeWrongColumnFixture(filename: string): Promise<void> {
 async function writeAnomalieFixture(filename: string): Promise<void> {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Timesheet");
-  ws.addRow(["Data", "Progetto", "Task", "Ore", "Note"]);
+  ws.addRow(["Date", "Project", "Task", "Hours", "Notes"]);
   ws.addRow(["2026-01-15", "E2E__OK", "dev", 8, ""]);   // valida
   ws.addRow(["2026-01-16", "", "review", "", ""]);       // MISSING_PROJECT + MISSING_HOURS
   ws.addRow(["2026-01-17", "E2E__OK", "", 4, ""]);       // MISSING_TASK

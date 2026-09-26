@@ -229,7 +229,7 @@ export default function ProfilePage() {
       {/* Section header */}
       <Box sx={{ mb: 2 }}>
         <Typography
-          variant="h6"
+          variant="h4"
           fontWeight={700}
           sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}
         >
@@ -246,7 +246,7 @@ export default function ProfilePage() {
           Connettori e token API
         </Typography>
         <Typography
-          variant="caption"
+          variant="body2"
           color="text.secondary"
           sx={{ pl: 1.75, display: 'block', mt: 0.5 }}
         >

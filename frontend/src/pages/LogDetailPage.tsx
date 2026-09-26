@@ -21,16 +21,17 @@ import CloseIcon from '@mui/icons-material/Close'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 
 import { StatusBadge } from '@/components/ui'
-import { ServiceTag } from '@/components/log/ServiceTag'
+import { ConnectorTag } from '@/components/log/ConnectorTag'
 import { SERVICE_META } from '@/components/connectors/serviceMeta'
 import { useImportDetail } from '@/hooks/useImports'
-import { formatLogDateTime, formatPeriodRange, statusBadge } from '@/lib/importLog'
+import { formatLogDate, formatLogDateTime, formatPeriodRange, statusBadge } from '@/lib/importLog'
 import type { ImportRowOut } from '@/types'
 
 type GroupStatus = 'success' | 'failed' | 'mixed'
 
 interface RowGroup {
   rowNumber: number
+  date: string | null
   excelProject: string
   excelTask: string
   hours: number
@@ -48,6 +49,7 @@ function groupRows(rows: ImportRowOut[]): RowGroup[] {
     if (!g) {
       g = {
         rowNumber: r.row_number,
+        date: r.entry_date ?? null,
         excelProject: r.excel_project,
         excelTask: r.excel_task,
         hours: r.hours,
@@ -231,7 +233,7 @@ export default function LogDetailPage() {
         </MetaCard>
         <MetaCard
           label="Righe fallite"
-          sub={imp.services.map((s) => SERVICE_META[s].name).join(' · ')}
+          sub={(imp.services ?? []).map((s) => SERVICE_META[s].name).join(' · ')}
         >
           <Box
             component="span"
@@ -282,7 +284,7 @@ export default function LogDetailPage() {
         <Table size="small" data-testid="detail-rows">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ width: 48 }}>#</TableCell>
+              <TableCell sx={{ width: 80 }}>Data</TableCell>
               <TableCell sx={{ width: 180 }}>Progetto (Excel)</TableCell>
               <TableCell sx={{ width: 160 }}>Task (Excel)</TableCell>
               <TableCell align="right" sx={{ width: 64 }}>
@@ -305,8 +307,17 @@ export default function LogDetailPage() {
                   >
                     {j === 0 && (
                       <>
-                        <TableCell rowSpan={g.backends.length} sx={{ verticalAlign: 'top' }}>
-                          {g.rowNumber}
+                        <TableCell
+                          rowSpan={g.backends.length}
+                          sx={{
+                            verticalAlign: 'top',
+                            fontFamily: 'monospace',
+                            fontSize: '0.75rem',
+                            color: 'text.secondary',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {formatLogDate(g.date)}
                         </TableCell>
                         <TableCell rowSpan={g.backends.length} sx={{ verticalAlign: 'top' }}>
                           <Typography variant="body2" fontWeight={600}>
@@ -330,7 +341,7 @@ export default function LogDetailPage() {
                         <Box
                           sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
                         >
-                          <ServiceTag service={b.service} />
+                          <ConnectorTag service={b.service} label={b.connector_label} />
                           <Box
                             component="span"
                             sx={{

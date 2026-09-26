@@ -2,11 +2,12 @@
 Rotte test-only — attive SOLO se E2E_TEST_MODE=true (ADR-003-B).
 Questo modulo non viene importato se il flag è assente.
 
-POST /_test/session        — emette JWT HS256 per il ruolo richiesto (STORY-020).
-POST /_test/reset          — cancella imports, connector_row_mappings e user_tokens.
-POST /_test/seed-mapping   — inserisce un UserToken e un ConnectorRowMapping di test.
+POST /_test/session         — emette JWT HS256 per il ruolo richiesto (STORY-020).
+POST /_test/reset           — cancella imports, connector_row_mappings e user_tokens.
+POST /_test/seed-mapping    — inserisce un UserToken e un ConnectorRowMapping di test.
 POST /_test/seed-import-log — inietta Import + ImportRow per test RBAC (E9a-7).
 POST /_test/seed-connector — inserisce un UserToken (sorgente o destinazione).
+POST /_test/seed-report-data — inietta 4 ImportRow success per la pagina Report (E9d-5).
 """
 
 import re
@@ -108,7 +109,8 @@ def _upsert_seed_token(
         db.add(token)
         return token
 
-    token.service = service
+    if token.service != service:
+        token.service = service
     if account_identifier is not None:
         token.account_identifier = account_identifier
     if base_url is not None:
@@ -284,3 +286,82 @@ def seed_connector(req: SeedConnectorRequest, db: Session = Depends(get_db)) -> 
     )
     db.commit()
     return {"ok": True, "connector_id": str(token.id)}
+
+
+class SeedReportDataRequest(BaseModel):
+    email: str
+
+
+@router.post("/seed-report-data")
+def seed_report_data(req: SeedReportDataRequest, db: Session = Depends(get_db)) -> dict:
+    """
+    Crea 4 ImportRow con status=success per testare la pagina Report (E9d-5).
+    Dati: Alpha (odoo-report, 12h) + Beta (jira-report, 8h) — date giugno 2026.
+    """
+    user = db.scalars(select(User).where(User.email == req.email)).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail=f"User not found: {req.email}")
+
+    imp = Import(
+        employee_id=user.id,
+        operator_id=None,
+        status=ImportStatus.success,
+        period_start=date(2026, 6, 1),
+        period_end=date(2026, 6, 30),
+        total_rows=4,
+        success_rows=4,
+        failed_rows=0,
+    )
+    db.add(imp)
+    db.flush()
+
+    for row in [
+        ImportRow(
+            import_id=imp.id,
+            row_number=1,
+            connector_label="odoo-report",
+            service=UserTokenService.odoo,
+            excel_project="Alpha",
+            excel_task="Dev",
+            hours=8.0,
+            entry_date=date(2026, 6, 1),
+            status=ImportRowStatus.success,
+        ),
+        ImportRow(
+            import_id=imp.id,
+            row_number=2,
+            connector_label="odoo-report",
+            service=UserTokenService.odoo,
+            excel_project="Alpha",
+            excel_task="Review",
+            hours=4.0,
+            entry_date=date(2026, 6, 2),
+            status=ImportRowStatus.success,
+        ),
+        ImportRow(
+            import_id=imp.id,
+            row_number=3,
+            connector_label="jira-report",
+            service=UserTokenService.jira,
+            excel_project="Beta",
+            excel_task="Dev",
+            hours=6.0,
+            entry_date=date(2026, 6, 1),
+            status=ImportRowStatus.success,
+        ),
+        ImportRow(
+            import_id=imp.id,
+            row_number=4,
+            connector_label="jira-report",
+            service=UserTokenService.jira,
+            excel_project="Beta",
+            excel_task="QA",
+            hours=2.0,
+            entry_date=date(2026, 6, 3),
+            status=ImportRowStatus.success,
+        ),
+    ]:
+        db.add(row)
+
+    db.commit()
+    return {"ok": True, "import_id": str(imp.id)}

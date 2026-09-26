@@ -35,7 +35,11 @@ class TaskOut(BaseModel):
 def _get_token_or_404(db: Session, user_id: UUID, label: str) -> UserToken:
     token = (
         db.query(UserToken)
-        .filter(UserToken.user_id == user_id, UserToken.label == label)
+        .filter(
+            UserToken.user_id == user_id,
+            UserToken.label == label,
+            UserToken.is_active == True,  # noqa: E712
+        )
         .first()
     )
     if token is None:
@@ -61,7 +65,7 @@ def _build_adapter_config(token: UserToken, user_id: UUID) -> AdapterConfig:
         params={
             "password": decrypted,
             "user": token.account_identifier or "",
-            # db_name vive in user_tokens.config dalla migrazione 0010; lo
+            # db_name vive in user_tokens.config dalla migrazione 0013; lo
             # schema del campo è dichiarato nel catalogo dei tipi.
             "db": (token.config or {}).get("db_name", ""),
         },

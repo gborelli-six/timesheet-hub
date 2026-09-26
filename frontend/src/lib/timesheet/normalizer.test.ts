@@ -6,9 +6,9 @@ import type { ColumnMapping } from './types'
 describe('normalize', () => {
   it('round-trip con mapping default: 3 righe valide → 3 entries, 0 warning', () => {
     const rows = [
-      { Data: '2026-01-15', Progetto: 'Alpha', Task: 'dev', Ore: 8, Note: 'ok' },
-      { Data: '2026-01-16', Progetto: 'Beta', Task: 'review', Ore: 4 },
-      { Data: '2026-01-17', Progetto: 'Alpha', Task: 'test', Ore: 6, Note: '' },
+      { Date: '2026-01-15', Project: 'Alpha', Task: 'dev', Hours: 8, Notes: 'ok' },
+      { Date: '2026-01-16', Project: 'Beta', Task: 'review', Hours: 4 },
+      { Date: '2026-01-17', Project: 'Alpha', Task: 'test', Hours: 6, Notes: '' },
     ]
     const { entries, warnings } = normalize(rows, DEFAULT_COLUMN_MAPPING)
 
@@ -26,8 +26,8 @@ describe('normalize', () => {
     expect(entries[2].notes).toBeUndefined()
   })
 
-  it('1 riga senza Ore → warning MISSING_HOURS, entry con hours: 0', () => {
-    const rows = [{ Data: '2026-01-15', Progetto: 'Alpha', Task: 'dev' }]
+  it('1 riga senza Hours → warning MISSING_HOURS, entry con hours: 0', () => {
+    const rows = [{ Date: '2026-01-15', Project: 'Alpha', Task: 'dev' }]
     const { entries, warnings } = normalize(rows, DEFAULT_COLUMN_MAPPING)
 
     const hoursWarnings = warnings.filter((w) => w.type === WarningType.MISSING_HOURS)
@@ -37,8 +37,8 @@ describe('normalize', () => {
     expect(entries[0].connectorAssignments).toEqual([])
   })
 
-  it('1 riga senza Progetto → warning MISSING_PROJECT', () => {
-    const rows = [{ Data: '2026-01-15', Task: 'dev', Ore: 8 }]
+  it('1 riga senza Project → warning MISSING_PROJECT', () => {
+    const rows = [{ Date: '2026-01-15', Task: 'dev', Hours: 8 }]
     const { entries, warnings } = normalize(rows, DEFAULT_COLUMN_MAPPING)
 
     const projectWarnings = warnings.filter((w) => w.type === WarningType.MISSING_PROJECT)
@@ -47,9 +47,9 @@ describe('normalize', () => {
     expect(entries[0].project).toBe('')
   })
 
-  it('mapping alternativo: colonna "Progetto" rinominata "Project" → normalizzazione corretta', () => {
-    const altMapping: ColumnMapping = { ...DEFAULT_COLUMN_MAPPING, project: 'Project' }
-    const rows = [{ Data: '2026-01-15', Project: 'MyProject', Task: 'dev', Ore: 6 }]
+  it('mapping alternativo: colonna "Project" rinominata "Progetto" → normalizzazione corretta', () => {
+    const altMapping: ColumnMapping = { ...DEFAULT_COLUMN_MAPPING, project: 'Progetto' }
+    const rows = [{ Date: '2026-01-15', Progetto: 'MyProject', Task: 'dev', Hours: 6 }]
     const { entries, warnings } = normalize(rows, altMapping)
 
     expect(warnings.filter((w) => w.type === WarningType.MISSING_PROJECT)).toHaveLength(0)
@@ -57,7 +57,7 @@ describe('normalize', () => {
   })
 
   it('formato data italiano DD/MM/YYYY → convertito a YYYY-MM-DD', () => {
-    const rows = [{ Data: '15/01/2026', Progetto: 'Alpha', Task: 'dev', Ore: 8 }]
+    const rows = [{ Date: '15/01/2026', Project: 'Alpha', Task: 'dev', Hours: 8 }]
     const { entries, warnings } = normalize(rows, DEFAULT_COLUMN_MAPPING)
 
     expect(warnings.filter((w) => w.type === WarningType.INVALID_DATE)).toHaveLength(0)
@@ -65,15 +65,17 @@ describe('normalize', () => {
   })
 
   it('cella-data Excel (oggetto Date) → convertita a YYYY-MM-DD senza warning', () => {
-    const rows = [{ Data: new Date(Date.UTC(2026, 0, 15)), Progetto: 'Alpha', Task: 'dev', Ore: 8 }]
+    const rows = [
+      { Date: new Date(Date.UTC(2026, 0, 15)), Project: 'Alpha', Task: 'dev', Hours: 8 },
+    ]
     const { entries, warnings } = normalize(rows, DEFAULT_COLUMN_MAPPING)
 
     expect(warnings.filter((w) => w.type === WarningType.INVALID_DATE)).toHaveLength(0)
     expect(entries[0].date).toBe('2026-01-15')
   })
 
-  it("colonna Ore assente nell'header → warning MISSING_PERIOD con rowIndex -1", () => {
-    const rows = [{ Data: '2026-01-15', Progetto: 'Alpha', Task: 'dev' }]
+  it("colonna Hours assente nell'header → warning MISSING_PERIOD con rowIndex -1", () => {
+    const rows = [{ Date: '2026-01-15', Project: 'Alpha', Task: 'dev' }]
     const { warnings } = normalize(rows, DEFAULT_COLUMN_MAPPING)
 
     const periodWarnings = warnings.filter((w) => w.type === WarningType.MISSING_PERIOD)
@@ -85,8 +87,8 @@ describe('normalize', () => {
     // FileUpload scarta header (riga 1) e una riga vuota (riga 3): qui sopravvivono
     // le righe Excel 2 e 4. Il warning deve puntare alla riga 4, non alla 2ª riga dati.
     const rows = [
-      { Data: '2026-01-15', Progetto: 'Alpha', Task: 'dev', Ore: 8 },
-      { Data: '2026-01-16', Task: 'review', Ore: 4 },
+      { Date: '2026-01-15', Project: 'Alpha', Task: 'dev', Hours: 8 },
+      { Date: '2026-01-16', Task: 'review', Hours: 4 },
     ]
     const { warnings } = normalize(rows, DEFAULT_COLUMN_MAPPING, [2, 4])
 

@@ -71,7 +71,7 @@ Questo preserva intatto l'invariante funzionale di `ADR-006` — la preview avvi
 
 ### ADR-008-D — Configurazione per tipo in JSONB `user_tokens.config` + catalogo `app/connector_types.py`
 
-**Decisione**: la colonna Odoo-specifica `db_name` (aggiunta in `0006`) viene sostituita da una colonna JSONB generica `user_tokens.config` (migrazione `0010_add_config_to_user_tokens.py`), il cui schema per tipo di servizio è dichiarato in un catalogo applicativo unico: `backend/app/connector_types.py`.
+**Decisione**: la colonna Odoo-specifica `db_name` (aggiunta in `0006`) viene sostituita da una colonna JSONB generica `user_tokens.config` (migrazione `0013_add_config_to_user_tokens.py`), il cui schema per tipo di servizio è dichiarato in un catalogo applicativo unico: `backend/app/connector_types.py`.
 
 Il catalogo (`CONNECTOR_TYPES: dict[ServiceType, ConnectorTypeSpec]`) dichiara per ogni servizio:
 
@@ -154,7 +154,7 @@ Il marker viaggia in `SourceConfig.marker`, popolato dal router (`_build_source_
 **Negative / trade-off accettati**:
 - Due ABC paralleli (`TimesheetAdapter`, `TimesheetSource`) da mantenere in sincronia concettuale: un servizio che diventasse sia sorgente sia destinazione (nessun caso oggi) richiederebbe due implementazioni distinte che condividono solo config/credenziali, non codice.
 - `user_tokens.config` è una colonna JSONB non tipizzata a livello di database: l'integrità dello schema per servizio è garantita solo applicativamente (`validate_config`), non da un vincolo SQL. Una scrittura diretta sul DB che bypassi l'applicazione potrebbe produrre un `config` non valido per il tipo.
-- Il downgrade della migrazione `0010` perde irrimediabilmente ogni chiave di `config` diversa da `db_name` — documentato come `WARNING` nello script stesso.
+- Il downgrade della migrazione `0013` perde irrimediabilmente ogni chiave di `config` diversa da `db_name` — documentato come `WARNING` nello script stesso.
 - L'handler `POST /api/me/sources/{label}/fetch` è sincrono e gira nel threadpool di FastAPI: una sorgente lenta o irraggiungibile occupa un thread per l'intera durata del timeout della libreria (vedi `008-clockify-source.md`).
 
 ---

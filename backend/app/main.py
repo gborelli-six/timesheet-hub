@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -12,9 +13,11 @@ from app.routers import (
     health,
     imports,
     mappings,
+    reports,
     sources,
     users,
 )
+from app.routers.imports import import_worker
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,16 @@ async def lifespan(app: FastAPI):
             "(/api/_test/*). Atteso solo in CI/local/test.",
             settings.environment,
         )
+    queue: asyncio.Queue = asyncio.Queue()
+    app.state.import_queue = queue
+    workers = [
+        asyncio.create_task(import_worker(queue))
+        for _ in range(settings.import_workers)
+    ]
     yield
+    await queue.join()
+    for w in workers:
+        w.cancel()
 
 
 app = FastAPI(title="Timesheet Hub API", version="0.1.0", lifespan=lifespan)
@@ -46,6 +58,7 @@ app.include_router(connector_types.router)
 app.include_router(mappings.router)
 app.include_router(imports.router)
 app.include_router(sources.router)
+app.include_router(reports.router)
 
 # Import lazy: il router test-only è incluso solo col flag attivo. Il modulo è
 # fisicamente presente nell'immagine (COPY app/ wholesale), ma non viene registrato

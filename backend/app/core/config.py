@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Default sicuro: in assenza di un segnale esplicito si assume produzione.
     environment: str = "production"
     e2e_test_mode: bool = False
+    import_workers: int = 3
 
     @field_validator("database_url", mode="after")
     @classmethod

@@ -4,9 +4,11 @@ import '@testing-library/jest-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import ImportPage from './ImportPage'
+import { useAuth } from '@/hooks/useAuth'
 import { useConnectors } from '@/hooks/useConnectors'
 import { useConnectorTypes } from '@/hooks/useConnectorTypes'
 import { useMappingSuggestions } from '@/hooks/useMappingSuggestions'
+import { useImportPolling } from '@/hooks/useImports'
 import { useSubmitImport } from '@/hooks/useSubmitImport'
 import type { ConnectorOut, ConnectorTypeOut } from '@/types'
 
@@ -19,7 +21,9 @@ vi.mock('exceljs', () => {
     worksheets: [
       {
         eachRow: (cb: (row: { values: unknown[] }, rowNumber: number) => void) => {
-          cb({ values: [null, 'Progetto', 'Task', 'Ore'] }, 1)
+          // Intestazioni in inglese: DEFAULT_COLUMN_MAPPING è stato allineato al
+          // template aziendale standard (Date/Project/Task/Hours/Notes) da main.
+          cb({ values: [null, 'Project', 'Task', 'Hours'] }, 1)
           cb({ values: [null, 'Proj A', 'Dev', 8] }, 2)
         },
       },
@@ -31,6 +35,9 @@ vi.mock('exceljs', () => {
   return { default: { Workbook: MockWorkbook } }
 })
 
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(),
+}))
 vi.mock('@/hooks/useConnectors', () => ({
   useConnectors: vi.fn(),
 }))
@@ -39,6 +46,12 @@ vi.mock('@/hooks/useConnectorTypes', () => ({
 }))
 vi.mock('@/hooks/useMappingSuggestions', () => ({
   useMappingSuggestions: vi.fn(),
+}))
+// ImportPage usa useImportPolling per il passaggio da 'submitting' a 'result'
+// dopo il submit (coda di importazione asincrona, E9d): nessuno di questi test
+// arriva al submit, quindi basta un valore neutro senza dato in polling.
+vi.mock('@/hooks/useImports', () => ({
+  useImportPolling: vi.fn(),
 }))
 vi.mock('@/hooks/useSubmitImport', () => ({
   useSubmitImport: vi.fn(),
@@ -52,9 +65,11 @@ vi.mock('@/hooks/useAdapterAutocomplete', () => ({
   useAdapterTasks: () => ({ data: [], isLoading: false }),
 }))
 
+const mockUseAuth = vi.mocked(useAuth)
 const mockUseConnectors = vi.mocked(useConnectors)
 const mockUseConnectorTypes = vi.mocked(useConnectorTypes)
 const mockUseMappingSuggestions = vi.mocked(useMappingSuggestions)
+const mockUseImportPolling = vi.mocked(useImportPolling)
 const mockUseSubmitImport = vi.mocked(useSubmitImport)
 
 function makeFile(name: string, size: number): File {
@@ -144,10 +159,21 @@ function odooConnector(): ConnectorOut {
 describe('ImportPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // ImportPage ripristina una bozza da sessionStorage per userId (E9c/E13):
+    // senza reset esplicito, una bozza salvata da un test (es. dopo "Avanti"
+    // in preview) sopravvive al render del test successivo — che mocka sempre
+    // lo stesso userId 'user-1' — e ne altera lo step iniziale.
+    sessionStorage.clear()
+    mockUseAuth.mockReturnValue({
+      data: { id: 'user-1', email: 'employee@sixfeetup.it', role: 'employee' },
+    } as unknown as ReturnType<typeof useAuth>)
     mockUseMappingSuggestions.mockReturnValue({
       mutate: vi.fn(),
       isPending: false,
     } as unknown as ReturnType<typeof useMappingSuggestions>)
+    mockUseImportPolling.mockReturnValue({
+      data: undefined,
+    } as unknown as ReturnType<typeof useImportPolling>)
     mockUseSubmitImport.mockReturnValue({
       mutate: vi.fn(),
     } as unknown as ReturnType<typeof useSubmitImport>)

@@ -32,6 +32,7 @@ function row(over: Partial<ImportRowOut>): ImportRowOut {
     remote_task_id: 't1',
     remote_task_name: 'Task A',
     hours: 8,
+    entry_date: '2026-05-15',
     status: 'success',
     error_message: null,
     ...over,
@@ -47,6 +48,10 @@ const DETAIL: ImportLogDetail = {
   success_rows: 1,
   failed_rows: 1,
   services: ['jira', 'linear'],
+  connectors: [
+    { service: 'jira', label: 'Jira' },
+    { service: 'linear', label: 'Linear' },
+  ],
   created_at: '2026-05-28T16:42:00',
   rows: [
     row({ id: 'r1', row_number: 1, service: 'jira', status: 'success' }),

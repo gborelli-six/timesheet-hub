@@ -216,7 +216,9 @@ Ordine di rilascio **employee-first** (roadmap v0.5): 🏁 Employee MVP → 🏁
 | E6 | ✅ Done | 6 | Upload Excel, SheetJS parsing, `TimesheetEntry[]` (con `connectorAssignments`), Normalizer | E4 |
 | E7 | ✅ Done | 7 | Architettura plug-in adapter + adapter Odoo (JSON-RPC, `getProjects`/`getTasks`); connettori per-utente via `user_tokens` | E5 |
 | E8a | ✅ Done | 6 | Wizard importazione **Employee** (self-import, step 1–4, no Step 0) + **assegnazione multi-connettore per riga** con suggerimenti (`connector_row_mappings`) | E5, E6, E7 |
-| E9a | ⬜ Todo | 7 | Log importazioni **Employee** (solo propri log + dettaglio) | E8a |
+| E9a | ✅ Done | 8 | Log importazioni **Employee** (propri log + dettaglio, persistenza `imports`/`import_rows`) | E8a |
+| E9c | ✅ Done | 6 | Filtri Step 2 "Verifica ed Assegna" — icone imbuto per data/progetto/task (Opzione C) | E8a |
+| E9d | ✅ Done | 6 | Report importazioni **Employee** — pivot gerarchica espandibile + filtri, granularità massima client-side | E9a |
 | — | 🏁 | — | **Milestone: Employee MVP** | — |
 | E3bis | ⬜ Todo | TBD | Gestione ruoli (API assegnazione/promozione employee/hr/admin) | E3 |
 | E10 | ⬜ Todo | TBD | Pannello Admin (UI utenti/ruoli su E3bis, backend config CRUD, mapping Excel) | E3bis, E8a |
@@ -226,9 +228,9 @@ Ordine di rilascio **employee-first** (roadmap v0.5): 🏁 Employee MVP → 🏁
 | — | 🏁 | — | **Milestone: HR** | — |
 | E11 | ⬜ Todo | TBD | Adapter aggiuntivi (Jira, Linear, Asana — post-v1) | E7 |
 | E12 | ⬜ Todo | TBD | Pannello per-utente mappature riga↔connettore preimpostate (post-v1) | E8a |
-| E13 | 🔄 In corso | TBD | **Sorgenti di importazione via API**: layer `TimesheetSource` (distinto dagli adapter/destinazioni), catalogo tipi + `user_tokens.config` JSONB (sostituisce `db_name`), Step 0 scelta sorgente nel wizard, sorgente **Clockify** | E5, E7, E8a |
+| E13 | ✅ Done | TBD | **Sorgenti di importazione via API**: layer `TimesheetSource` (distinto dagli adapter/destinazioni), catalogo tipi + `user_tokens.config` JSONB (sostituisce `db_name`), Step 0 scelta sorgente nel wizard, sorgente **Clockify** | E5, E7, E8a |
 
-**Prossima epica da implementare:** E13 in corso; poi E3bis (gestione ruoli)
+**Prossima epica da implementare:** E3bis (gestione ruoli — E13 ✅, nessun blocco)
 
 ### Sorgenti vs destinazioni (da E13)
 

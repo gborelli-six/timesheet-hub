@@ -54,7 +54,7 @@ export interface ConnectorResult {
 
 // ─── Log importazioni (E9a) ──────────────────────────────────────────────────
 
-export type ImportStatus = 'success' | 'partial' | 'failed'
+export type ImportStatus = 'in_progress' | 'success' | 'partial' | 'failed'
 export type ImportRowStatus = 'success' | 'failed'
 
 export interface ImportRowOut {
@@ -69,6 +69,7 @@ export interface ImportRowOut {
   remote_task_id: string | null
   remote_task_name: string | null
   hours: number
+  entry_date: string | null
   status: ImportRowStatus
   error_message: string | null
 }
@@ -82,6 +83,7 @@ export interface ImportLogSummary {
   success_rows: number
   failed_rows: number
   services: ServiceType[]
+  connectors: { service: ServiceType; label: string }[]
   created_at: string
 }
 
@@ -94,6 +96,7 @@ export interface ImportFilters {
   period_to?: string
   service?: ServiceType | ''
   status?: ImportStatus | ''
+  connector_label?: string
 }
 
 // Response completa del submit: prima si scartava import_id, ora serve per
@@ -101,4 +104,32 @@ export interface ImportFilters {
 export interface ImportSubmitResponse {
   import_id: string
   results: ConnectorResult[]
+}
+
+// ─── Report ore (E9d) ────────────────────────────────────────────────────────
+
+// Riga alla granularità massima restituita da GET /api/me/reports/hours.
+// L'aggregazione gerarchica (progetto → giorno/task) è tutta client-side.
+export interface HoursDetailRow {
+  excel_project: string
+  excel_task: string
+  entry_date: string | null // YYYY-MM-DD o null (righe senza data)
+  connector_label: string
+  service: ServiceType
+  total_hours: number
+  row_count: number
+}
+
+export interface HoursReport {
+  rows: HoursDetailRow[]
+  grand_total_hours: number
+}
+
+export interface ReportFilters {
+  period_from?: string
+  period_to?: string
+  service?: ServiceType | ''
+  connector_label?: string
+  project?: string // filtro su excel_project
+  task?: string // filtro su excel_task
 }

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
 
-# JSONB su PostgreSQL (indicizzabile, è ciò che la migrazione 0010 crea), JSON
+# JSONB su PostgreSQL (indicizzabile, è ciò che la migrazione 0013 crea), JSON
 # generico sugli altri dialetti: i test unit sui modelli girano su SQLite, che
 # non conosce JSONB.
 _JSONType = JSON().with_variant(JSONB(), "postgresql")
@@ -70,4 +70,7 @@ class UserToken(TimestampMixin, Base):
     # in secret_enc, cifrati (ADR-005).
     config: Mapped[dict] = mapped_column(
         _JSONType, nullable=False, default=dict, server_default="{}"
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
     )

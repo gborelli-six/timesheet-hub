@@ -53,7 +53,7 @@ La tabella `user_tokens` eredita `TimestampMixin` (`ADR-004-A`) e segue le conve
 - **`account_identifier` non è write-only**: è un dato di identità, non un segreto. Resta in chiaro così da poter essere mostrato e modificato nel profilo (UX "connesso come `mario.rossi@…`").
 - **`secret_enc` è write-only**: non viene mai serializzato verso il client (vedi ADR-005-C). L'unico modo per cambiarlo è sovrascriverlo.
 
-> **Nota (E13)**: la migrazione `0010_add_config_to_user_tokens.py` sostituisce la colonna Odoo-specifica `db_name` (introdotta da `0006`) con una colonna JSONB generica `user_tokens.config`, il cui schema per tipo di servizio è dichiarato nel catalogo `app/connector_types.py`. Come `account_identifier` e `base_url`, `config` è **in chiaro** e **non write-only**: contiene per progetto solo dati non sensibili di configurazione (es. `db_name` per Odoo), mai segreti — quelli restano esclusivamente in `secret_enc`, cifrato come descritto sotto. Dettagli in `ADR-008-D`.
+> **Nota (E13)**: la migrazione `0013_add_config_to_user_tokens.py` sostituisce la colonna Odoo-specifica `db_name` (introdotta da `0006`) con una colonna JSONB generica `user_tokens.config`, il cui schema per tipo di servizio è dichiarato nel catalogo `app/connector_types.py`. Come `account_identifier` e `base_url`, `config` è **in chiaro** e **non write-only**: contiene per progetto solo dati non sensibili di configurazione (es. `db_name` per Odoo), mai segreti — quelli restano esclusivamente in `secret_enc`, cifrato come descritto sotto. Dettagli in `ADR-008-D`.
 
 ### ADR-005-B — Cifratura: AES-256-GCM con AAD legato al record
 

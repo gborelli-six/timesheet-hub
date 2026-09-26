@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import uuid4
 
@@ -72,7 +72,11 @@ def list_connectors(
     user: Annotated[CurrentUser, Depends(require_role(_ALL_ROLES))],
     db: Session = Depends(get_db),
 ) -> list[ConnectorOut]:
-    tokens = db.query(UserToken).filter(UserToken.user_id == user.id).all()
+    tokens = (
+        db.query(UserToken)
+        .filter(UserToken.user_id == user.id, UserToken.is_active == True)  # noqa: E712
+        .all()
+    )
     return [_to_out(t) for t in tokens]
 
 
@@ -86,7 +90,11 @@ def upsert_connector(
     user_id = user.id
     token = (
         db.query(UserToken)
-        .filter(UserToken.user_id == user_id, UserToken.label == label)
+        .filter(
+            UserToken.user_id == user_id,
+            UserToken.label == label,
+            UserToken.is_active == True,  # noqa: E712
+        )
         .first()
     )
 
@@ -160,13 +168,24 @@ def delete_connector(
 ) -> dict:
     token = (
         db.query(UserToken)
-        .filter(UserToken.user_id == user.id, UserToken.label == label)
+        .filter(
+            UserToken.user_id == user.id,
+            UserToken.label == label,
+            UserToken.is_active == True,  # noqa: E712
+        )
         .first()
     )
     if token is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Connettore non trovato"
         )
-    db.delete(token)
+    token.is_active = False
+    token.secret_enc = b""
+    token.nonce = b""
+    token.account_identifier = None
+    token.base_url = None
+    token.config = {}
+    ts = datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")
+    token.label = f"{label}__deactivated_{ts}"
     db.commit()
     return {"ok": True}

@@ -36,11 +36,11 @@ type ColumnMapping = {
 
 | Campo interno | Intestazione Excel |
 |---|---|
-| `date` | `Data` |
-| `project` | `Progetto` |
+| `date` | `Date` |
+| `project` | `Project` |
 | `task` | `Task` |
-| `hours` | `Ore` |
-| `notes` | `Note` |
+| `hours` | `Hours` |
+| `notes` | `Notes` |
 
 Esportato da `types.ts` come `DEFAULT_COLUMN_MAPPING`. In v1 è hardcoded; il pannello Admin per la configurazione è previsto in E10.
 

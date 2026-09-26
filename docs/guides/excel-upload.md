@@ -28,11 +28,11 @@ Il file deve seguire il **template aziendale standard**. Colonne richieste (inte
 
 | Colonna | Intestazione | Obbligatoria |
 |---|---|---|
-| Data | `Data` | No — se assente le righe vengono importate senza data |
-| Progetto | `Progetto` | Si |
+| Data | `Date` | No — se assente le righe vengono importate senza data |
+| Progetto | `Project` | Si |
 | Task | `Task` | Si |
-| Ore | `Ore` | Si |
-| Note | `Note` | No |
+| Ore | `Hours` | Si |
+| Note | `Notes` | No |
 
 > Le intestazioni sono **case-sensitive** e devono corrispondere esattamente al template standard. Se usi un template modificato, contatta l'Admin per aggiornare il mapping colonne.
 
@@ -74,11 +74,11 @@ Le righe con anomalie vengono evidenziate con sfondo arancione e un'icona nella 
 
 | Warning | Significato | Cosa fare |
 |---|---|---|
-| `MISSING_PROJECT` | La colonna **Progetto** è vuota in questa riga | Controlla e ricompila il file |
+| `MISSING_PROJECT` | La colonna **Project** è vuota in questa riga | Controlla e ricompila il file |
 | `MISSING_TASK` | La colonna **Task** è vuota in questa riga | Controlla e ricompila il file |
-| `MISSING_HOURS` | La colonna **Ore** è assente o contiene un valore non numerico | Controlla e ricompila il file |
+| `MISSING_HOURS` | La colonna **Hours** è assente o contiene un valore non numerico | Controlla e ricompila il file |
 | `INVALID_DATE` | La data non è nel formato riconosciuto (`YYYY-MM-DD` o `DD/MM/YYYY`) | Correggi il formato data nel file |
-| `MISSING_PERIOD` | La colonna **Ore** è assente dall'intero file | Il file usa un template diverso — ricarica il file corretto |
+| `MISSING_PERIOD` | La colonna **Hours** è assente dall'intero file | Il file usa un template diverso — ricarica il file corretto |
 
 ---
 
@@ -92,10 +92,28 @@ Puoi procedere se:
 
 ---
 
+## Assegnare i connettori alle righe
+
+Nello step **"Verifica e assegna"** ogni riga va associata a uno o più connettori (Odoo, Jira, …) con il relativo progetto e task remoto. Clicca **"+ Assegna"** su una riga per aprire il pannello di assegnazione. Solo le righe con almeno un connettore verranno importate.
+
+Dalla **seconda importazione** in poi le associazioni vengono **pre-compilate automaticamente** in base allo storico delle tue importazioni precedenti (icona ✨ *Suggerito*). Sono sempre modificabili.
+
+### Precompila righe simili
+
+Alla **prima importazione**, o quando compaiono **nuovi progetti/attività** non ancora presenti nello storico, puoi risparmiare tempo con il pulsante **"Precompila righe simili"** (in cima alla tabella):
+
+1. Assegna manualmente **almeno una** riga.
+2. Il testo accanto al pulsante indica quante righe ancora vuote condividono lo **stesso progetto e task** di righe già assegnate.
+3. Clicca **"Precompila righe simili"**: quelle righe ricevono automaticamente gli **stessi connettori** (marcati come *Suggerito*).
+
+Il match è **esatto** su progetto + task (ignorando maiuscole/minuscole e spazi in eccesso): righe con progetto o task diverso non vengono toccate. Puoi sempre rivedere o modificare le assegnazioni precompilate prima di confermare.
+
+---
+
 ## Quando ricaricare il file
 
 Ricarica il file se:
-- Vedi il warning **`MISSING_PERIOD`** (manca l'intera colonna Ore) — significa che stai usando il template sbagliato
+- Vedi il warning **`MISSING_PERIOD`** (manca l'intera colonna Hours) — significa che stai usando il template sbagliato
 - Molte righe hanno `MISSING_PROJECT` o `MISSING_TASK` — indica un problema strutturale al file
 - I dati nell'anteprima non corrispondono a ciò che ti aspetti
 
@@ -120,5 +138,5 @@ Se sei HR Manager, prima di caricare il file seleziona il dipendente per cui sta
 **Il file viene rifiutato con "Il file non contiene dati"**  
 → Il file è vuoto o ha solo l'intestazione senza righe dati.
 
-**Vedo `MISSING_PERIOD` ma la colonna Ore c'è**  
-→ L'intestazione della colonna potrebbe avere spazi o maiuscole diverse. Il mapping default si aspetta esattamente `Ore`. Contatta l'Admin per aggiornare il mapping.
+**Vedo `MISSING_PERIOD` ma la colonna Hours c'è**  
+→ L'intestazione della colonna potrebbe avere spazi o maiuscole diverse. Il mapping default si aspetta esattamente `Hours`. Contatta l'Admin per aggiornare il mapping.

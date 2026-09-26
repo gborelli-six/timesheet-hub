@@ -10,7 +10,7 @@ api_router = APIRouter(prefix="/api", tags=["me"])
 def get_current_user_profile(
     user: CurrentUser = Depends(require_role(["employee", "hr", "admin"])),
 ) -> dict:
-    return {"email": user.email, "role": user.role}
+    return {"id": str(user.id), "email": user.email, "role": user.role}
 
 
 @router.get("/hr-only")
@@ -22,4 +22,4 @@ def hr_only(
 
 @api_router.get("/me")
 def get_me(user: CurrentUser = Depends(get_current_user)) -> dict:
-    return {"email": user.email, "role": user.role}
+    return {"id": str(user.id), "email": user.email, "role": user.role}

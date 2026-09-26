@@ -23,20 +23,29 @@ import PreviewTable from '../components/PreviewTable'
 import { SourceFetchPanel } from '../components/SourceFetchPanel'
 import { SourceSelector } from '../components/SourceSelector'
 import type { SourceSelection } from '../components/SourceSelector'
+import { useAuth } from '../hooks/useAuth'
 import { useConnectors } from '../hooks/useConnectors'
 import { useConnectorTypes } from '../hooks/useConnectorTypes'
 import {
   useMappingSuggestions,
   type SuggestedAssignmentResponse,
 } from '../hooks/useMappingSuggestions'
+import { useImportPolling } from '../hooks/useImports'
+import { usePreviewFilters } from '../hooks/usePreviewFilters'
 import { useSubmitImport } from '../hooks/useSubmitImport'
+import { loadDraft, saveDraft, clearDraft } from '../lib/importDraft'
 import { normalize } from '../lib/timesheet/normalizer'
 import type { ConnectorAssignment, TimesheetEntry, RowWarning } from '../lib/timesheet/types'
 import { WarningType, DEFAULT_COLUMN_MAPPING } from '../lib/timesheet/types'
-import type { ConnectorOut, ConnectorResult } from '../types'
+import type { ConnectorOut, ConnectorResult, ImportLogDetail } from '../types'
 
+// Step del wizard lato pagina: distinto da `DraftStep` (che conosce solo
+// 'upload'|'preview'|'confirm') perché il wizard può avere anche uno step
+// "Sorgente" in testa (E13) — vedi WizardMode. La mappatura fra i due avviene
+// solo nel salvataggio/ripristino della bozza ('input' locale ↔ 'upload' nella
+// bozza), dato che la bozza non viene mai persistita prima dello step preview.
 type ImportStep = 'source' | 'input' | 'preview' | 'confirm'
-type ImportPhase = 'form' | 'submitting' | 'result'
+type ImportPhase = 'form' | 'submitting' | 'polling' | 'result'
 // 'loading': non sappiamo ancora se l'utente ha sorgenti API configurate.
 // 'with-source': ha almeno un connettore sorgente → wizard a 4 step con lo
 // step "Sorgente" in testa. 'excel-only': nessuna sorgente configurata → lo
@@ -47,6 +56,26 @@ type WizardMode = 'loading' | 'with-source' | 'excel-only'
 interface StepDef {
   id: ImportStep
   label: string
+}
+
+// Costruisce la lista di step del wizard in base alla modalità e (se
+// rilevante) alla sorgente scelta. Funzione pura: riusata sia nel render sia
+// nell'effetto di inizializzazione (per calcolare `maxReached` al ripristino
+// di una bozza).
+function getSteps(mode: 'with-source' | 'excel-only', source: SourceSelection | null): StepDef[] {
+  if (mode === 'excel-only') {
+    return [
+      { id: 'input', label: 'Upload' },
+      { id: 'preview', label: 'Verifica e assegna' },
+      { id: 'confirm', label: 'Conferma' },
+    ]
+  }
+  return [
+    { id: 'source', label: 'Sorgente' },
+    { id: 'input', label: source?.kind === 'connector' ? 'Periodo' : 'Upload' },
+    { id: 'preview', label: 'Verifica e assegna' },
+    { id: 'confirm', label: 'Conferma' },
+  ]
 }
 
 function StepBar({
@@ -72,7 +101,7 @@ function StepBar({
         position: 'sticky',
         top: 76,
         zIndex: 20,
-        borderRadius: 3,
+        borderRadius: 1.5,
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
@@ -88,8 +117,8 @@ function StepBar({
               >
                 <Box
                   sx={{
-                    width: 28,
-                    height: 28,
+                    width: 30,
+                    height: 30,
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
@@ -102,10 +131,11 @@ function StepBar({
                       ? 'primary.light'
                       : done || active
                         ? 'primary.main'
-                        : 'divider',
+                        : 'grey.300',
                     color: done || active ? '#fff' : 'text.disabled',
                     transition: 'all 0.15s',
                     cursor: clickable ? 'pointer' : 'default',
+                    boxShadow: active ? '0 0 0 4px #dae4f7' : 'none',
                     '&:hover': clickable
                       ? {
                           borderColor: 'primary.main',
@@ -133,8 +163,9 @@ function StepBar({
                 <Box
                   sx={{
                     width: 48,
-                    height: 1,
-                    bgcolor: i < current ? 'primary.main' : 'divider',
+                    height: 2,
+                    borderRadius: 1,
+                    bgcolor: i < current ? 'primary.main' : 'grey.300',
                     mx: 1.5,
                     transition: 'background-color 0.15s',
                   }}
@@ -172,6 +203,30 @@ function extractSubmitError(err: unknown): string {
   )
 }
 
+function deriveResultsFromDetail(detail: ImportLogDetail): ConnectorResult[] {
+  const grouped = new Map<string, ConnectorResult>()
+  for (const row of detail.rows) {
+    if (!grouped.has(row.connector_label)) {
+      grouped.set(row.connector_label, {
+        connector_label: row.connector_label,
+        success_count: 0,
+        error_count: 0,
+        errors: [],
+      })
+    }
+    const r = grouped.get(row.connector_label)!
+    if (row.status === 'success') {
+      r.success_count++
+    } else {
+      r.error_count++
+      if (row.error_message) {
+        r.errors.push({ row: row.row_number, message: row.error_message })
+      }
+    }
+  }
+  return Array.from(grouped.values())
+}
+
 function buildSuggestedAssignments(
   suggestionsByRow: SuggestedAssignmentResponse[][],
   currentEntries: TimesheetEntry[],
@@ -204,6 +259,37 @@ function buildSuggestedAssignments(
   return { newAssignments, updatedEntries }
 }
 
+// Normalizzazione identica a mapping_service._normalize del backend:
+// trim → collasso spazi interni → lowercase. Garantisce che il match in-page
+// usi la stessa chiave dei suggerimenti da storico.
+function normalizeKey(s: string): string {
+  return s.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+// Deduce le assegnazioni per le righe ancora vuote a partire dalle righe già
+// assegnate nella pagina: match esatto sulla coppia (project, task) normalizzata,
+// clona la lista connettori marcandola suggested: true.
+export function computeSimilarFill(
+  currentEntries: TimesheetEntry[],
+  currentAssignments: Record<number, ConnectorAssignment[]>,
+): Record<number, ConnectorAssignment[]> {
+  const byKey: Record<string, ConnectorAssignment[]> = {}
+  currentEntries.forEach((e, i) => {
+    const list = currentAssignments[i]
+    if (!list || list.length === 0 || !e.project) return
+    const key = normalizeKey(e.project) + ' ' + normalizeKey(e.task ?? '')
+    if (!byKey[key]) byKey[key] = list
+  })
+  const add: Record<number, ConnectorAssignment[]> = {}
+  currentEntries.forEach((e, i) => {
+    if ((currentAssignments[i] && currentAssignments[i].length) || !e.project) return
+    const key = normalizeKey(e.project) + ' ' + normalizeKey(e.task ?? '')
+    const src = byKey[key]
+    if (src) add[i] = src.map((a) => ({ ...a, suggested: true }))
+  })
+  return add
+}
+
 // ─── StepConfirm ────────────────────────────────────────────────────────────
 
 function StepConfirm({ entries, period }: { entries: TimesheetEntry[]; period: string }) {
@@ -225,7 +311,7 @@ function StepConfirm({ entries, period }: { entries: TimesheetEntry[]; period: s
       <Grid container spacing={2}>
         {/* Card sinistra — Dettagli importazione */}
         <Grid size={6}>
-          <Paper variant="outlined" sx={{ p: '20px 24px', borderRadius: 2, height: '100%' }}>
+          <Paper variant="outlined" sx={{ p: '20px 24px', borderRadius: 1, height: '100%' }}>
             <Typography
               sx={{
                 fontSize: '0.6875rem',
@@ -290,7 +376,7 @@ function StepConfirm({ entries, period }: { entries: TimesheetEntry[]; period: s
 
         {/* Card destra — Connettori coinvolti */}
         <Grid size={6}>
-          <Paper variant="outlined" sx={{ p: '20px 24px', borderRadius: 2, height: '100%' }}>
+          <Paper variant="outlined" sx={{ p: '20px 24px', borderRadius: 1, height: '100%' }}>
             <Typography
               sx={{
                 fontSize: '0.6875rem',
@@ -317,7 +403,7 @@ function StepConfirm({ entries, period }: { entries: TimesheetEntry[]; period: s
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       p: '8px 12px',
-                      borderRadius: 1.5,
+                      borderRadius: 1,
                       border: '1px solid',
                       borderColor: 'divider',
                       bgcolor: 'grey.50',
@@ -483,12 +569,20 @@ export default function ImportPage() {
   const [modalRow, setModalRow] = useState<number | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
+  const { data: me } = useAuth()
+  const userId = me?.id
+
   const connectorsQuery = useConnectors()
   const connectorTypesQuery = useConnectorTypes()
   const connectors = connectorsQuery.data ?? []
   const connectorTypes = connectorTypesQuery.data ?? []
   const { mutate: fetchSuggestions, isPending: suggestionsLoading } = useMappingSuggestions()
   const { mutate: submitImport } = useSubmitImport()
+  const { data: pollingDetail } = useImportPolling(importId, phase === 'polling')
+
+  // Filtri Step "Verifica e assegna" (data/progetto/task) — transitori, non
+  // persistiti nella bozza.
+  const previewFilters = usePreviewFilters(entries)
 
   const hasSourceConnectors = connectors.some(
     (c) => connectorTypes.find((t) => t.service === c.service)?.is_source,
@@ -506,39 +600,75 @@ export default function ImportPage() {
           (c) => connectorTypes.find((t) => t.service === c.service)?.is_destination,
         )
 
-  // Decide una sola volta, al primo caricamento riuscito di connettori e
-  // catalogo, se lo step "Sorgente" va mostrato o saltato. La decisione resta
-  // fissa per la sessione del wizard: se l'utente aggiunge/rimuove connettori
-  // sorgente mentre il wizard è aperto, il layout non cambia sotto ai suoi
-  // piedi (si aggiorna al prossimo mount della pagina).
+  // Inizializzazione: decide una sola volta, al primo caricamento riuscito di
+  // connettori, catalogo e utente, se lo step "Sorgente" va mostrato o
+  // saltato — e, contestualmente, se c'è una bozza salvata da ripristinare
+  // (sessionStorage, per utente). La decisione su wizardMode resta fissa per
+  // la sessione del wizard: se l'utente aggiunge/rimuove connettori sorgente
+  // mentre il wizard è aperto, il layout non cambia sotto ai suoi piedi (si
+  // aggiorna al prossimo mount della pagina).
   const initializedRef = useRef(false)
   useEffect(() => {
     if (initializedRef.current) return
     if (connectorsQuery.isLoading || connectorTypesQuery.isLoading) return
+    if (!userId) return
     initializedRef.current = true
-    if (hasSourceConnectors) {
-      setWizardMode('with-source')
+
+    const mode: WizardMode = hasSourceConnectors ? 'with-source' : 'excel-only'
+    setWizardMode(mode)
+
+    const draft = loadDraft(userId)
+    if (draft && draft.entries.length > 0 && draft.step !== 'upload') {
+      setEntries(draft.entries)
+      setWarnings(draft.warnings)
+      setHasInput(true)
+      setStep(draft.step)
+      const restoredSteps = getSteps(mode, null)
+      setMaxReached(
+        Math.max(
+          0,
+          restoredSteps.findIndex((s) => s.id === draft.step),
+        ),
+      )
+      // assignments è derivato da entries (fonte unica di verità) per evitare drift
+      const restored: Record<number, ConnectorAssignment[]> = {}
+      draft.entries.forEach((e, i) => {
+        if (e.connectorAssignments.length > 0) restored[i] = e.connectorAssignments
+      })
+      setAssignments(restored)
+      return
+    }
+
+    if (mode === 'with-source') {
       setStep('source')
     } else {
-      setWizardMode('excel-only')
       setSource({ kind: 'excel' })
       setStep('input')
     }
-  }, [connectorsQuery.isLoading, connectorTypesQuery.isLoading, hasSourceConnectors])
+  }, [connectorsQuery.isLoading, connectorTypesQuery.isLoading, userId, hasSourceConnectors])
 
-  const steps: StepDef[] =
-    wizardMode === 'excel-only'
-      ? [
-          { id: 'input', label: 'Upload' },
-          { id: 'preview', label: 'Verifica e assegna' },
-          { id: 'confirm', label: 'Conferma' },
-        ]
-      : [
-          { id: 'source', label: 'Sorgente' },
-          { id: 'input', label: source?.kind === 'connector' ? 'Periodo' : 'Upload' },
-          { id: 'preview', label: 'Verifica e assegna' },
-          { id: 'confirm', label: 'Conferma' },
-        ]
+  // Transizione da polling a result quando il backend ha terminato.
+  useEffect(() => {
+    if (phase !== 'polling' || !pollingDetail) return
+    if (pollingDetail.status === 'in_progress') return
+    setImportResults(deriveResultsFromDetail(pollingDetail))
+    setPhase('result')
+  }, [phase, pollingDetail])
+
+  // Salvataggio automatico della bozza a ogni cambiamento rilevante. Persiste
+  // solo durante la compilazione (phase 'form'), dallo step "Verifica e
+  // assegna" in poi, e con almeno una entry; negli altri casi (source/input
+  // vuoto, submitting, polling, result) rimuove la bozza.
+  useEffect(() => {
+    if (!initializedRef.current || !userId) return
+    if (phase === 'form' && (step === 'preview' || step === 'confirm') && entries.length > 0) {
+      saveDraft(userId, { step, entries, warnings, hasFile: hasInput })
+    } else {
+      clearDraft(userId)
+    }
+  }, [userId, entries, warnings, step, hasInput, phase])
+
+  const steps: StepDef[] = getSteps(wizardMode === 'loading' ? 'excel-only' : wizardMode, source)
   const stepIndex = steps.findIndex((s) => s.id === step)
 
   function goTo(i: number) {
@@ -564,6 +694,7 @@ export default function ImportPage() {
     setAssignments({})
     setModalRow(null)
     setSubmitError(null)
+    previewFilters.resetFilters()
   }
 
   function handleSelectSource(selection: SourceSelection) {
@@ -581,7 +712,7 @@ export default function ImportPage() {
     const result = normalize(rows, DEFAULT_COLUMN_MAPPING, rowNumbers)
     if (result.warnings.some((w) => w.type === WarningType.MISSING_PERIOD)) {
       setFormatError(
-        'Formato non riconosciuto. Il file deve avere le colonne: Data, Progetto, Task, Ore, Note.',
+        'Formato non riconosciuto. Il file deve avere le colonne: Date, Project, Task, Hours, Notes.',
       )
       setFileKey((k) => k + 1)
       setHasInput(false)
@@ -635,6 +766,7 @@ export default function ImportPage() {
     setStep('input')
     setSubmitError(null)
     setModalRow(null)
+    previewFilters.resetFilters()
   }
 
   function handleBackToPreview() {
@@ -658,9 +790,9 @@ export default function ImportPage() {
     setPhase('submitting')
     submitImport(entries, {
       onSuccess: (res) => {
-        setImportResults(res.results)
+        if (userId) clearDraft(userId)
         setImportId(res.import_id)
-        setPhase('result')
+        setPhase('polling')
       },
       onError: (err) => {
         setSubmitError(extractSubmitError(err))
@@ -670,6 +802,7 @@ export default function ImportPage() {
   }
 
   function handleReset() {
+    if (userId) clearDraft(userId)
     // Riparte dallo stesso step iniziale della sessione corrente (deciso una
     // volta sola all'apertura della pagina): 'source' se ci sono sorgenti API,
     // altrimenti direttamente 'input' con Excel implicito.
@@ -693,6 +826,19 @@ export default function ImportPage() {
 
   const importableRows = Object.values(assignments).filter((a) => a.length > 0).length
   const hasSuggestions = Object.values(assignments).some((list) => list.some((a) => a.suggested))
+
+  const similarFill = useMemo(
+    () => computeSimilarFill(entries, assignments),
+    [entries, assignments],
+  )
+  const fillableCount = Object.keys(similarFill).length
+
+  function handleFillSimilar() {
+    const add = computeSimilarFill(entries, assignments)
+    if (Object.keys(add).length === 0) return
+    setAssignments((prev) => ({ ...prev, ...add }))
+    setEntries((prev) => prev.map((e, i) => (add[i] ? { ...e, connectorAssignments: add[i] } : e)))
+  }
 
   const period = useMemo(() => {
     const dates = entries.map((e) => e.date).filter(Boolean) as string[]
@@ -751,7 +897,10 @@ export default function ImportPage() {
         >
           Importazione
         </Typography>
-        <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
+        <Typography
+          variant="h4"
+          sx={{ fontSize: '1.875rem', fontWeight: 700, letterSpacing: '-0.02em' }}
+        >
           Nuova importazione
         </Typography>
         <Typography sx={{ fontSize: '0.8125rem', color: 'text.secondary', maxWidth: '60ch' }}>
@@ -765,7 +914,7 @@ export default function ImportPage() {
         {wizardMode === 'loading' ? (
           // Non sappiamo ancora se lo step "Sorgente" va mostrato: niente
           // flash dello step sbagliato, solo un caricamento neutro finché
-          // connettori e catalogo non sono pronti.
+          // connettori, catalogo e utente non sono pronti.
           <Paper
             variant="outlined"
             sx={{
@@ -790,8 +939,8 @@ export default function ImportPage() {
               <StepBar steps={steps} current={stepIndex} maxReached={maxReached} onJump={goTo} />
             )}
 
-            <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-              {/* Panel head — nascosto in result, mostrato in submitting solo per titolo */}
+            <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
+              {/* Panel head — nascosto in result, mostrato in submitting/polling solo per titolo */}
               {phase !== 'result' && (
                 <Box
                   sx={{
@@ -816,10 +965,14 @@ export default function ImportPage() {
                         letterSpacing: '0.06em',
                       }}
                     >
-                      {phase === 'submitting' ? 'Invio in corso' : panelStepLabel}
+                      {phase === 'submitting' || phase === 'polling'
+                        ? 'Invio in corso'
+                        : panelStepLabel}
                     </Typography>
                     <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, mb: 0.5 }}>
-                      {phase === 'submitting' ? 'Importazione' : panelHeadTitle}
+                      {phase === 'submitting' || phase === 'polling'
+                        ? 'Importazione'
+                        : panelHeadTitle}
                     </Typography>
                     {phase === 'form' && (
                       <Typography
@@ -908,6 +1061,28 @@ export default function ImportPage() {
                   </Box>
                 )}
 
+                {/* Phase: polling */}
+                {phase === 'polling' && (
+                  <Box
+                    data-testid="polling-screen"
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 3,
+                      py: 6,
+                    }}
+                  >
+                    <CircularProgress size={48} />
+                    <Typography variant="h6" color="text.secondary">
+                      Importazione in corso…
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Stiamo inviando i dati ai connettori selezionati.
+                    </Typography>
+                  </Box>
+                )}
+
                 {/* Phase: result */}
                 {phase === 'result' && (
                   <StepResult
@@ -944,9 +1119,11 @@ export default function ImportPage() {
                             mt: 2.5,
                             border: '1px solid',
                             borderColor: 'divider',
-                            borderRadius: 2,
+                            borderRadius: 1,
                             bgcolor: 'grey.50',
                             p: '14px 16px',
+                            maxWidth: 620,
+                            mx: 'auto',
                           }}
                         >
                           <Box
@@ -971,7 +1148,7 @@ export default function ImportPage() {
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                            {['Data', 'Progetto', 'Task', 'Ore', 'Note'].map((col) => (
+                            {['Date', 'Project', 'Task', 'Hours', 'Notes'].map((col) => (
                               <Box
                                 key={col}
                                 component="span"
@@ -1017,11 +1194,59 @@ export default function ImportPage() {
                             modificabili: apri una riga per cambiarle.
                           </Alert>
                         )}
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 1.5,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 0.75,
+                              color: 'text.secondary',
+                            }}
+                            data-testid="preview-fill-similar-hint"
+                          >
+                            <AutoAwesomeIcon
+                              fontSize="small"
+                              color={fillableCount > 0 ? 'primary' : 'disabled'}
+                            />
+                            {fillableCount > 0
+                              ? `${fillableCount} righe simili a righe già assegnate possono essere precompilate.`
+                              : 'Assegna almeno una riga per precompilare quelle simili.'}
+                          </Typography>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AutoAwesomeIcon />}
+                            onClick={handleFillSimilar}
+                            disabled={fillableCount === 0}
+                            data-testid="preview-btn-fill-similar"
+                          >
+                            Precompila righe simili
+                          </Button>
+                        </Box>
                         <PreviewTable
                           entries={entries}
                           warnings={warnings}
                           assignmentsByRow={assignments}
                           onAssign={setModalRow}
+                          filteredIndices={previewFilters.filteredIndices}
+                          filters={previewFilters.filters}
+                          distinctDates={previewFilters.distinctDates}
+                          distinctProjects={previewFilters.distinctProjects}
+                          distinctTasks={previewFilters.distinctTasks}
+                          onFilterDate={previewFilters.setFilterDate}
+                          onFilterProject={previewFilters.setFilterProject}
+                          onFilterTask={previewFilters.setFilterTask}
+                          isFiltered={previewFilters.isFiltered}
+                          onResetFilters={previewFilters.resetFilters}
                         />
                         {suggestionsLoading && (
                           <Box

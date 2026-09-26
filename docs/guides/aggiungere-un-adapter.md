@@ -49,7 +49,7 @@ Il vocabolario dei servizi vive in **due** punti che devono restare sincronizzat
        nuovo    = "nuovo"   # ← aggiungi qui, stesso valore di ServiceType
    ```
 
-Poi crea una migrazione Alembic **scritta a mano** per aggiungere il valore all'enum del database — PostgreSQL non aggiunge valori enum autogenerando la revision, e `ALTER TYPE ... ADD VALUE` non può comunque essere eseguito ed usato nella stessa transazione (vedi `backend/alembic/versions/0009_add_clockify_to_service_enum.py` come esempio reale, incluso il downgrade distruttivo che va guardato prima di copiarlo):
+Poi crea una migrazione Alembic **scritta a mano** per aggiungere il valore all'enum del database — PostgreSQL non aggiunge valori enum autogenerando la revision, e `ALTER TYPE ... ADD VALUE` non può comunque essere eseguito ed usato nella stessa transazione (vedi `backend/alembic/versions/0012_add_clockify_to_service_enum.py` come esempio reale, incluso il downgrade distruttivo che va guardato prima di copiarlo):
 
 ```bash
 cd backend

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
 
 export interface MeResponse {
+  id: string
   email: string
   role: 'employee' | 'hr' | 'admin'
 }
